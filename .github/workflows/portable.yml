@@ -1,0 +1,38 @@
+name: Portable packages
+
+on:
+  push:
+    branches: [main, folio-kit]
+    paths: ["Package.swift", "Packages/**", "Tests/**", "Tools/**", "MockServer/**", ".github/workflows/portable.yml"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit and integration tests
+        run: swift test --parallel
+      - name: Real HTTP sync against the mock FreshRSS server
+        run: |
+          apt-get update -qq && apt-get install -y -qq python3 >/dev/null
+          python3 -I MockServer/mock_freshrss.py --port 8787 &
+          sleep 1
+          FOLIO_MOCK_URL=http://127.0.0.1:8787 swift test --filter FolioIntegrationTests
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: compnerd/gha-setup-swift@main
+        with:
+          branch: swift-6.2-release
+          tag: 6.2-RELEASE
+      - name: Unit and integration tests
+        run: swift test

@@ -1,0 +1,24 @@
+# Read-only: shows TestFlight processing state, beta groups and tester
+# counts from the App Store Connect API. Changes nothing.
+name: TestFlight status
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    environment: testflight
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+          BUNDLE_ID: ${{ vars.APP_BUNDLE_ID }}
+        run: |
+          set -euo pipefail
+          pip install --quiet pyjwt cryptography
+          export ASC_PRIVATE_KEY="$(printf '%s' "$ASC_KEY_B64" | base64 --decode)"
+          python3 scripts/asc_status.py | tee -a "$GITHUB_STEP_SUMMARY"

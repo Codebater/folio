@@ -1,0 +1,93 @@
+name: iOS
+
+on:
+  push:
+    branches: [main, folio-kit]
+    paths: ["Package.swift", "Packages/**", "Apps/**", "Tests/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["Package.swift", "Packages/**", "Apps/**", "Tests/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # macOS minutes are expensive on private repos: one job does everything.
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        # Same Xcode as the signed TestFlight workflow; never a beta.
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
+          swift --version
+
+      - name: Package tests (macOS)
+        run: swift test --parallel 2>&1 | tail -60
+
+      - name: Generate Xcode project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec Apps/FolioiOS/project.yml
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=lambda r: [int(x) if x.isdigit() else 0 for x in r.split("-")[-2:]])
+          for runtime in reversed(runtimes):
+              phones = [d for d in devices[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[-1]["udid"]); break
+          ')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep "$UDID"
+
+      - name: Build and test the app
+        run: |
+          set -o pipefail
+          FORMATTER=cat
+          command -v xcbeautify >/dev/null && FORMATTER="xcbeautify --renderer github-actions"
+          xcodebuild test \
+            -project Apps/FolioiOS/Folio.xcodeproj \
+            -scheme Folio \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath build/Folio.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | $FORMATTER
+
+      - name: Build for device (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build -project Apps/FolioiOS/Folio.xcodeproj -scheme Folio \
+            -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO -quiet
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          mkdir -p build/screens
+          xcrun xcresulttool export attachments --path build/Folio.xcresult --output-path build/screens || true
+          ls build/screens | head -40
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: build/screens
+          retention-days: 14
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folio.xcresult
+          path: build/Folio.xcresult
+          retention-days: 5

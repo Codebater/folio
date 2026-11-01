@@ -1,0 +1,67 @@
+# Renders sample paragraphs with Folio's neural voices (Kokoro, Supertonic-3
+# via FluidAudio) on a Mac and uploads the audio, word timings and a summary
+# as the "neural-samples" artifact. Proves the models download, run and give
+# word timings through the app's own code. Mac speed is not iPhone speed.
+name: Neural voices
+
+on:
+  push:
+    branches: [main]
+    paths: ["Packages/FolioNeural/**", "Packages/FolioAudio/Sources/FolioAudio/WordTiming.swift", ".github/workflows/neural.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: neural-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  samples:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+
+      - name: Cache models
+        uses: actions/cache@v4
+        with:
+          path: build/neural-models
+          key: neural-models-fluidaudio-0.18.0-r2
+
+      - name: Build
+        working-directory: Packages/FolioNeural
+        run: |
+          set -o pipefail
+          swift build -c release --product folio-neural-check 2>&1 | tail -40
+
+      - name: Render samples
+        working-directory: Packages/FolioNeural
+        run: |
+          # One process per voice: a crash in one model can't hide the others.
+          # Supertonic-3 and Paradee must pass. Kokoro crashes with a bus error on GitHub's
+          # virtual Macs in every routing, and so does FluidAudio's own CLI
+          # (checked 2026-11-01), so here it only warns; real iPhones decide.
+          failed=0
+          for voice in neural.supertonic.M1.cs neural.supertonic.F2.sk neural.supertonic.F1.de \
+                       neural.paradee.af_heart neural.paradee.bm_fable; do
+            .build/release/folio-neural-check ../../build/neural ../../build/neural-models "$voice" noMetal || failed=1
+          done
+          for voice in neural.kokoro.af_heart neural.kokoro.ef_dora; do
+            .build/release/folio-neural-check ../../build/neural ../../build/neural-models "$voice" noMetal               || echo "::warning::$voice failed on this virtual Mac (known FluidAudio/Kokoro crash here; test on an iPhone)"
+          done
+          cat ../../build/neural/summary.md || true
+          exit $failed
+
+      - name: Upload samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neural-samples
+          path: |
+            build/neural/*.m4a
+            build/neural/*.wav
+            build/neural/*.json
+            build/neural/summary.md
+          retention-days: 14

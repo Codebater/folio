@@ -1,0 +1,25 @@
+node_modules/
+.next/
+dist/
+build/
+target/
+.venv/
+venv/
+__pycache__/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+.build/
+.swiftpm/
+*.xcodeproj/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.preview/
+
+# Private notes live in ../folio-notes (Forgejo andrej/folio-notes), not in this public repo.
+docs/research/
+docs/ROADMAP.md

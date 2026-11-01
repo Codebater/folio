@@ -1,0 +1,41 @@
+Folio
+Copyright (c) 2026 GRAPHIQ Studio LLC
+
+The source code is licensed under the Functional Source License, Version 1.1,
+ALv2 Future License (FSL-1.1-ALv2; see LICENSE). Each version becomes available
+under the Apache License 2.0 two years after it is published.
+The "Folio" name, logo and app icon are trademarks of GRAPHIQ Studio LLC and are
+not licensed under the FSL or the Apache License. Forks must use a different
+name and icon.
+
+Third-party components
+----------------------
+
+SQLite 3.54.1 (Packages/FolioStorage/Sources/CSQLite)
+  Public domain. https://sqlite.org/copyright.html
+
+FluidAudio 0.18.0 (Swift package dependency of Packages/FolioNeural)
+  Apache License 2.0. Copyright FluidInference.
+  https://github.com/FluidInference/FluidAudio
+
+Neural voice models, downloaded on the device only when the user asks
+(not included in the source or the app bundle):
+  Kokoro-82M (hexgrad), Core ML conversion by FluidInference
+    Apache License 2.0. https://huggingface.co/hexgrad/Kokoro-82M
+  Supertonic-3 (Supertone Inc.), Core ML conversion by FluidInference
+    OpenRAIL-M. Its use restrictions apply to everyone who uses the voices
+    and must be passed on with them.
+    https://huggingface.co/Supertone/supertonic-3
+  Paradee-8M v1.2 (Sahil Mahendrakar), Core ML conversion by FluidInference
+    Apache License 2.0. https://huggingface.co/sahilmahendrakar/Paradee-8M-v1.2
+
+Design references (no code copied)
+----------------------------------
+
+NetNewsWire (MIT, Ranchero Software): the Reader API sync order and the
+offline sync-status queue design informed FolioSync and FolioStorage.
+foliate-js (MIT): CSS multi-column pagination approach.
+FreshRSS (AGPL-3.0): used only as a server through its public Google Reader
+API; no FreshRSS code is included.
+BookOrbit and Readest (AGPL-3.0): product and architecture study only; no code
+is included.

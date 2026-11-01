@@ -1,0 +1,33 @@
+# Expires one TestFlight build (exact version + build number). Manual only;
+# it refuses the newest build. Expiring cannot be undone for that build.
+name: Expire TestFlight build
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version, e.g. 1.0
+        required: true
+      build:
+        description: Build number, e.g. 1
+        required: true
+permissions:
+  contents: read
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    environment: testflight
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expire build
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+          BUNDLE_ID: ${{ vars.APP_BUNDLE_ID }}
+          EXPIRE_VERSION: ${{ inputs.version }}
+          EXPIRE_BUILD: ${{ inputs.build }}
+        run: |
+          set -euo pipefail
+          pip install --quiet pyjwt cryptography
+          export ASC_PRIVATE_KEY="$(printf '%s' "$ASC_KEY_B64" | base64 --decode)"
+          cd scripts && python3 asc_expire.py | tee -a "$GITHUB_STEP_SUMMARY"

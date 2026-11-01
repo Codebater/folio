@@ -1,0 +1,127 @@
+{
+  "_comment": "Demo content for Folio. All text is original and written for this project. Single source for the Python mock server and the app's built-in demo account (regenerate Swift with generate_demo_seed.py).",
+  "categories": [
+    {"id": "user/-/label/Design", "label": "Design"},
+    {"id": "user/-/label/Science", "label": "Science"},
+    {"id": "user/-/label/World", "label": "World"}
+  ],
+  "feeds": [
+    {"id": "feed/1", "title": "The Margin", "url": "https://margin.example/feed.xml", "htmlUrl": "https://margin.example/", "categories": ["user/-/label/Design"]},
+    {"id": "feed/2", "title": "Field Notes", "url": "https://fieldnotes.example/rss", "htmlUrl": "https://fieldnotes.example/", "categories": ["user/-/label/Science"]},
+    {"id": "feed/3", "title": "Nachtschicht", "url": "https://nachtschicht.example/feed", "htmlUrl": "https://nachtschicht.example/", "categories": ["user/-/label/World"]},
+    {"id": "feed/4", "title": "La Br&uacute;jula", "url": "https://brujula.example/rss", "htmlUrl": "https://brujula.example/", "categories": ["user/-/label/World"]},
+    {"id": "feed/5", "title": "Horizont", "url": "https://horizont.example/feed", "htmlUrl": "https://horizont.example/", "categories": ["user/-/label/World"]}
+  ],
+  "articles": [
+    {
+      "id": "1730390400000001",
+      "feed": "feed/1",
+      "title": "Why the best pages feel quiet",
+      "author": "Mara Ellison",
+      "url": "https://margin.example/2026/quiet-pages",
+      "published": 1761900000,
+      "read": false,
+      "starred": true,
+      "html": "<figure><img src=\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 675'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23e9dcc4'/%3E%3Cstop offset='1' stop-color='%23b9875a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='675' fill='url(%23g)'/%3E%3Ccircle cx='860' cy='300' r='170' fill='%23f6efe3' opacity='.7'/%3E%3Crect x='170' y='210' width='420' height='26' rx='13' fill='%233b2f25' opacity='.75'/%3E%3Crect x='170' y='270' width='520' height='14' rx='7' fill='%233b2f25' opacity='.35'/%3E%3Crect x='170' y='300' width='480' height='14' rx='7' fill='%233b2f25' opacity='.35'/%3E%3C/svg%3E\" alt=\"Abstract page with a warm gradient\" width=\"1200\" height=\"675\"><figcaption>A page is mostly the space around the words.</figcaption></figure><p>Open a well-made book and the first thing you notice is nothing at all. The margins are generous, the lines are not too long, and the type sits on the page without asking for attention. That calm is not an accident. It is the sum of a hundred small decisions that each remove a little friction.</p><h2>The measure</h2><p>Line length, which typographers call the <em>measure</em>, does more for comfort than any typeface. Somewhere between 55 and 75 characters per line, the eye finds the start of the next line without effort. Go wider and readers lose their place; go narrower and the rhythm turns choppy.</p><blockquote><p>Good typography is invisible. Bad typography is everywhere you look.</p></blockquote><p>Leading matters almost as much. Text set too tight feels crowded, while text set too loose drifts apart into separate stripes. A line height of about 1.5 times the font size is a sensible default for body text on a phone.</p><h2>Three rules we keep</h2><ul><li>Give paragraphs room, but not so much that they float.</li><li>Use one typeface for reading and let size and weight do the rest.</li><li>Respect the reader&#8217;s settings&nbsp;&mdash; their eyes, their light, their choice.</li></ul><p>None of this is new. Scribes worked it out by hand long before screens existed. We are simply relearning it for glass. <a href=\"/2026/measure-guide\" onclick=\"track()\">Read our guide to the measure</a>.</p><img src=\"https://margin.example/pixel.gif\" width=\"1\" height=\"1\" alt=\"\"><script>track('view')</script>"
+    },
+    {
+      "id": "1730390400000002",
+      "feed": "feed/1",
+      "title": "Dark mode is not just inverted light",
+      "author": "Mara Ellison",
+      "url": "https://margin.example/2026/dark-mode",
+      "published": 1761813600,
+      "read": false,
+      "starred": false,
+      "html": "<p>Flip a white page to black and something strange happens: the text seems to glow, the letters look bolder, and fine strokes start to shimmer. Light text on a dark ground spreads into its surroundings, an effect known as <strong>halation</strong>. A good night theme compensates for it.</p><h3>Soften the contrast</h3><p>Pure white on pure black is the harshest pairing a screen can produce. Most comfortable night themes use an off-white for text and a deep grey or warm brown for the background. On OLED phones a true black background saves power, so it earns its place as an option, but the text should still step down from full brightness.</p><h3>Lighten the weight</h3><p>Because light text appears heavier, some readers drop to a slightly lighter weight or add a hair of letter spacing in dark mode. It is a small adjustment that makes long reading sessions easier on tired eyes.</p><pre><code>body.dark {\n  color: #d8d2c8;\n  background: #121110;\n}</code></pre><p>The goal is the same as during the day: a page that disappears so the story can come forward.</p>"
+    },
+    {
+      "id": "1730390400000003",
+      "feed": "feed/2",
+      "title": "The quiet engineering of a bird's wing",
+      "author": "Tomas Reyes",
+      "url": "https://fieldnotes.example/wings",
+      "published": 1761727200,
+      "read": false,
+      "starred": false,
+      "html": "<p>A barn owl can fly so softly that a mouse hears nothing until it is too late. The secret sits on the leading edge of each flight feather: a comb of tiny serrations that breaks the air into many small swirls instead of a few loud ones.</p><figure><img src=\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 600'%3E%3Crect width='1200' height='600' fill='%23d9e4e8'/%3E%3Cpath d='M80 420 C 380 140, 760 120, 1120 300 C 820 260, 520 320, 80 420 Z' fill='%23506a74'/%3E%3Cpath d='M160 400 l30 -40 M240 380 l30 -46 M320 360 l30 -50 M400 344 l30 -52' stroke='%23ffffff' stroke-width='6' opacity='.6'/%3E%3C/svg%3E\" alt=\"Diagram of an owl wing\" width=\"1200\" height=\"600\"><figcaption>Serrations on the leading edge break up turbulence.</figcaption></figure><p>Engineers have borrowed the idea for fan blades and wind turbines. Copying nature is rarely a straight line, though. A feather flexes, repairs itself, and works at speeds and sizes that machines do not share.</p><h2>What the numbers say</h2><p>In wind-tunnel tests, serrated edges cut broadband noise by several decibels without a meaningful loss of lift. That may sound modest, but sound is measured on a logarithmic scale, so a few decibels is a change you can clearly hear.</p><ol><li>Serrations break up large vortices.</li><li>A velvety upper surface damps friction noise.</li><li>A soft trailing fringe blurs the wake.</li></ol><p>Together they make a wing that seems to move through the air rather than against it, which is exactly what a hunter in the dark needs. Scientists at the <abbr title=\"National Aeronautics and Space Administration\">NASA</abbr> research centres and elsewhere continue to study the U.S. and European owl species, e.g. the barn owl and the tawny owl.</p>"
+    },
+    {
+      "id": "1730390400000004",
+      "feed": "feed/2",
+      "title": "How long does a raindrop take to fall?",
+      "author": "Tomas Reyes",
+      "url": "https://fieldnotes.example/raindrops",
+      "published": 1761640800,
+      "read": true,
+      "starred": false,
+      "html": "<p>Less time than you might think, and more than a stone. A typical raindrop leaves a cloud about two kilometres up and reaches the ground in a few minutes. It never keeps accelerating, because air pushes back harder the faster it falls.</p><p>That balance point is called terminal velocity. For a small drizzle droplet it is slower than walking pace. For a big summer drop it is close to nine metres per second, about the speed of a sprinter.</p><blockquote><p>Big drops are not tear-shaped. They look more like the top half of a hamburger bun, flattened by the air underneath.</p></blockquote><p>Drops larger than about five millimetres rarely survive the trip. The air flattens them until they break apart into smaller ones, which is why even the heaviest downpour is made of drops within a narrow range of sizes.</p>"
+    },
+    {
+      "id": "1730390400000005",
+      "feed": "feed/3",
+      "title": "Die Stadt, die nachts arbeitet",
+      "author": "Jonas Weber",
+      "url": "https://nachtschicht.example/stadt",
+      "published": 1761901000,
+      "read": false,
+      "starred": false,
+      "html": "<p>Wenn die letzten Straßenbahnen in die Depots fahren, beginnt für viele Menschen erst der Arbeitstag. Bäckerinnen heizen die Öfen an, Reinigungsteams ziehen durch leere Büros, und in den Krankenhäusern wechselt still die Schicht.</p><h2>Ein anderer Rhythmus</h2><p>Wer nachts arbeitet, lebt gegen die innere Uhr. Der Körper erwartet Dunkelheit und Ruhe, doch das Licht der Werkhalle sagt etwas anderes. Viele Beschäftigte berichten, dass sie sich nach Jahren an den Rhythmus gewöhnt haben, z. B. durch feste Schlafzeiten und dunkle Vorhänge.</p><p>Die Stadt merkt davon wenig. Am Morgen liegen frische Brötchen in den Regalen, die Gleise sind geprüft und die Mülltonnen geleert. Es ist eine Arbeit, die man vor allem dann bemerkt, wenn sie einmal ausfällt.</p><blockquote><p>„Die Nacht gehört uns“, sagt ein Busfahrer, „und wir geben sie jeden Morgen zurück.“</p></blockquote>"
+    },
+    {
+      "id": "1730390400000006",
+      "feed": "feed/4",
+      "title": "El mercado que nunca duerme",
+      "author": "Lucía Ferrer",
+      "url": "https://brujula.example/mercado",
+      "published": 1761815000,
+      "read": false,
+      "starred": false,
+      "html": "<p>A las cuatro de la madrugada, el mercado central ya está despierto. Los camiones descargan cajas de naranjas, los pescaderos colocan el hielo con cuidado y el olor a café llena los pasillos.</p><p>Para muchos comerciantes, estas horas son las más importantes del día. Aquí se fijan los precios, se cierran los tratos y se decide qué llegará a las tiendas del barrio por la mañana.</p><h2>Una tradición que cambia</h2><p>Las aplicaciones de pedidos y los grandes supermercados han cambiado el oficio, pero no lo han hecho desaparecer. Al contrario: muchos jóvenes vuelven al mercado porque valoran el trato directo, la temporada y el producto local.</p><p>¿El secreto? Según una vendedora con treinta años de experiencia, «la gente no viene solo a comprar, viene a conversar».</p>"
+    },
+    {
+      "id": "1730390400000007",
+      "feed": "feed/5",
+      "title": "Ako sa rodí ranná správa",
+      "author": "Petra Novotná",
+      "url": "https://horizont.example/ranna-sprava",
+      "published": 1761729000,
+      "read": false,
+      "starred": false,
+      "html": "<p>Ešte pred svitaním sa v redakcii rozsvieti prvé svetlo. Editorka si prejde nočné agentúrne správy, skontroluje počasie a zostaví plán na celý deň.</p><p>Ranná správa musí byť krátka, presná a zrozumiteľná. Ľudia ju počúvajú pri raňajkách alebo cestou do práce, preto na každú vetu záleží.</p><h2>Overiť, potom zverejniť</h2><p>Najdôležitejšie pravidlo sa nemení už desaťročia: najprv overiť, potom zverejniť. Aj keď sociálne siete tlačia na rýchlosť, redakcia si radšej počká na druhý zdroj, napr. na potvrdenie od polície alebo hasičov.</p><p>Keď o šiestej zaznie znelka, práca nekončí. Prichádzajú nové informácie, a tak sa celý kolotoč začína odznova.</p>"
+    },
+    {
+      "id": "1730390400000008",
+      "feed": "feed/1",
+      "title": "A short history of the pilcrow",
+      "author": "Ivo Marsh",
+      "url": "https://margin.example/2026/pilcrow",
+      "published": 1761554400,
+      "read": false,
+      "starred": false,
+      "html": "<p>Before writers broke text into indented paragraphs, they ran everything together and marked each new thought with a symbol. The mark we know today as the pilcrow, &para;, began life as a simple letter C for <em>capitulum</em>, meaning a little head or chapter.</p><p>Scribes left space at the start of each section so a specialist, the rubricator, could add the mark later in red ink. Sometimes the rubricator never came, and the gaps stayed empty. Those blank spaces may be the ancestors of the paragraph indent.</p><p>Today the pilcrow mostly appears in word processors, where it reveals hidden formatting. It is a quiet reminder that every convention on a page was once an invention.</p><iframe src=\"https://www.youtube.com/embed/aqz-KE-bpKQ\" width=\"560\" height=\"315\"></iframe><p>Watch the talk above for more, or see the <a href=\"https://margin.example/2026/symbols\">full symbols series</a>.</p>"
+    },
+    {
+      "id": "1730390400000009",
+      "feed": "feed/2",
+      "title": "Why your phone gets warm when it charges",
+      "author": "Tomas Reyes",
+      "url": "https://fieldnotes.example/battery-heat",
+      "published": 1761468000,
+      "read": false,
+      "starred": true,
+      "html": "<p>No battery is perfectly efficient. When lithium ions move from one electrode to the other, a little energy turns into heat instead of chemical storage. Fast charging pushes more current, so it produces more heat in less time.</p><p>Phones manage this carefully. When the battery passes about 80&nbsp;percent, charging slows down, because filling the last part is where heat and wear increase the most. Some phones learn your routine and finish charging just before you usually wake up.</p><h2>What actually helps</h2><ul><li>Avoid charging in direct sun or under a pillow.</li><li>Remove thick cases during fast charging if the phone gets hot.</li><li>Don&#x27;t worry about occasional full charges; habits matter more than single nights.</li></ul><p>Heat, not the number of charges, is the main enemy of battery life. Keep it cool and it will keep going.</p>"
+    },
+    {
+      "id": "1730390400000010",
+      "feed": "feed/3",
+      "title": "Warum wir Listen lieben",
+      "author": "Jonas Weber",
+      "url": "https://nachtschicht.example/listen",
+      "published": 1761380000,
+      "read": true,
+      "starred": false,
+      "html": "<p>Einkaufslisten, Bestenlisten, Aufgabenlisten: Menschen ordnen die Welt gern in Punkte. Psychologen vermuten, dass Listen das Arbeitsgedächtnis entlasten. Was aufgeschrieben ist, muss nicht mehr im Kopf behalten werden.</p><p>Dazu kommt ein kleines Glücksgefühl beim Abhaken. Jeder erledigte Punkt ist ein sichtbarer Fortschritt, auch wenn der Tag sonst chaotisch war.</p><ul><li>Kurze Listen werden eher fertig.</li><li>Konkrete Punkte sind leichter zu erledigen als vage.</li><li>Eine Liste für morgen hilft beim Einschlafen.</li></ul>"
+    }
+  ]
+}

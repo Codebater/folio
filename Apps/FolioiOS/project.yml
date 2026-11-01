@@ -1,0 +1,137 @@
+# XcodeGen spec for the Folio iOS app. Generate the project on a Mac with
+#   brew install xcodegen && xcodegen generate --spec Apps/FolioiOS/project.yml
+# CI does the same before building (see .github/workflows/ios.yml).
+name: Folio
+options:
+  bundleIdPrefix: com.codebater
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+
+packages:
+  FolioKit:
+    path: ../..
+  # Neural voices (FluidAudio); Apple platforms only, so a separate package.
+  FolioNeural:
+    path: ../../Packages/FolioNeural
+
+fileGroups:
+  - Folio/Folio.storekit
+
+targets:
+  Folio:
+    type: application
+    platform: iOS
+    sources:
+      - path: Folio
+        excludes:
+          - Folio.storekit
+    dependencies:
+      - package: FolioKit
+        product: FolioCore
+      - package: FolioKit
+        product: FolioFreshRSS
+      - package: FolioKit
+        product: FolioReader
+      - package: FolioKit
+        product: FolioAudio
+      - package: FolioKit
+        product: FolioStorage
+      - package: FolioKit
+        product: FolioSync
+      - package: FolioNeural
+        product: FolioNeural
+    info:
+      path: Folio/Info.plist
+      properties:
+        CFBundleDisplayName: Folio
+        # Without these XcodeGen writes fixed "1.0" / "1", and the build
+        # number passed by the TestFlight workflow is ignored.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.news
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIBackgroundModes:
+          - audio
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          # Self-hosted servers on a LAN or the local mock server may be plain
+          # HTTP; everything on the public internet must use HTTPS.
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.codebater.folio
+        # Set by the TestFlight workflow. A profile passed on the xcodebuild
+        # command line would apply to every target, including Swift package
+        # resource bundles (FluidAudio), which can't take one.
+        PROVISIONING_PROFILE_SPECIFIER: $(FOLIO_PROFILE_SPECIFIER)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+
+  FolioTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: FolioTests
+    dependencies:
+      - target: Folio
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Folio.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Folio
+
+  FolioUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: FolioUITests
+    dependencies:
+      - target: Folio
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Folio
+
+schemes:
+  Folio:
+    build:
+      targets:
+        Folio: all
+        FolioTests: [test]
+        FolioUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: Folio/Folio.storekit
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - FolioTests
+        - FolioUITests
