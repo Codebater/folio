@@ -116,13 +116,15 @@ struct HeaderButtonLabel: View {
 }
 
 extension View {
-    /// Content scrolling under the status bar fades softly (iOS 26), now
-    /// that no navigation bar sits there.
-    @ViewBuilder func softTopEdge() -> some View {
-        if #available(iOS 26.0, *) {
-            self.scrollEdgeEffectStyle(.soft, for: .top)
-        } else {
-            self
+    /// Content scrolling under the clock fades into the page colour, so the
+    /// status bar stays readable now that no navigation bar sits there.
+    func statusBarFade(_ theme: ReadingTheme) -> some View {
+        overlay(alignment: .top) {
+            LinearGradient(colors: [Color(theme.background), Color(theme.background).opacity(0)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 14)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
         }
     }
 }
@@ -139,7 +141,7 @@ struct SyncStatusLabel: View {
             Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
         case .idle:
             if let last = model.lastSyncedAt {
-                Text("Updated \(Format.relative(last))")
+                Text("Updated \(Format.relative(last).replacingOccurrences(of: "Just now", with: "just now"))")
             } else {
                 Text("Pull down to sync")
             }

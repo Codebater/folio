@@ -49,7 +49,7 @@ struct TodayView: View {
         .refreshable { await model.sync() }
         .navigationDestination(for: ArticleID.self) { ReaderView(articleID: $0) }
         .toolbar(.hidden, for: .navigationBar)
-        .softTopEdge()
+        .statusBarFade(theme)
         .task(id: model.revision) { await reload() }
     }
 

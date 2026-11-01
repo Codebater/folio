@@ -75,7 +75,7 @@ struct ListenView: View {
         .folioScreen(theme)
         .navigationTitle("Listen")
         .toolbar(.hidden, for: .navigationBar)
-        .softTopEdge()
+        .statusBarFade(theme)
         .navigationDestination(for: ArticleID.self) { ReaderView(articleID: $0) }
         .sheet(isPresented: $showPremium) { PremiumView() }
         .sheet(isPresented: $showBuilder) { BulletinBuilderView() }
@@ -410,8 +410,9 @@ private struct SourceBubble: View {
                     .font(.caption.weight(.semibold))
                     .lineLimit(2).multilineTextAlignment(.center)
                 Text(StationText.length(station)).font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(1).minimumScaleFactor(0.8)
             }
-            .frame(width: 78)
+            .frame(width: 90)
         }
         .buttonStyle(PressableStyle())
         .accessibilityElement(children: .ignore)

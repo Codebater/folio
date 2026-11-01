@@ -27,23 +27,25 @@ struct LibraryView: View {
 
     var body: some View {
         List {
-            ScreenHeader {
-                VStack(alignment: .leading, spacing: 2) {
-                    ScreenTitle(text: "Library").accessibilityIdentifier("library-title")
-                    SyncStatusLabel().font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                }
-            } trailing: {
-                SettingsToolbarButton(showSettings: $showSettings)
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
-            .listRowSeparator(.hidden)
             Section {
                 smartRow("Unread", "circle.inset.filled", .unread, count: model.unread.total)
                 smartRow("Saved", "star", .starred, count: model.unread.starred)
                 smartRow("Continue reading", "book", .inProgress, count: nil)
                 smartRow("Downloaded", "arrow.down.circle", .downloaded, count: nil)
                 smartRow("All articles", "tray.full", .all, count: nil)
+            } header: {
+                ScreenHeader {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ScreenTitle(text: "Library")
+                            .foregroundStyle(Color(theme.text))
+                            .accessibilityIdentifier("library-title")
+                        SyncStatusLabel().font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                } trailing: {
+                    SettingsToolbarButton(showSettings: $showSettings)
+                }
+                .textCase(nil)
+                .padding(.bottom, 10)
             }
             if !model.categories.isEmpty {
                 Section("Categories") {
@@ -70,7 +72,7 @@ struct LibraryView: View {
         .folioScreen(theme)
         .navigationTitle("Library")
         .toolbar(.hidden, for: .navigationBar)
-        .softTopEdge()
+        .statusBarFade(theme)
         .refreshable { await model.sync() }
         .navigationDestination(for: ArticleListRoute.self) { ArticleListView(route: $0) }
         .navigationDestination(for: ArticleID.self) { ReaderView(articleID: $0) }
