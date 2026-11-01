@@ -19,13 +19,19 @@ final class FolioUITests: XCTestCase {
         app.buttons["Settings"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         let voices = app.buttons["voice-library"]
-        for _ in 0..<5 where !voices.isHittable { app.swipeUp() }
+        scrollTo(voices, in: app)
         voices.tap()
     }
 
     /// Lists only create rows on screen: scroll until `element` can be tapped.
+    /// Half-screen drags, because a full swipe can carry a row from below the
+    /// screen to above it without it ever being on screen.
     private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
+        for _ in 0..<14 where !(element.exists && element.isHittable) {
+            from.press(forDuration: 0.05, thenDragTo: to)
+        }
     }
 
     private func screenshot(_ app: XCUIApplication, _ name: String) {
