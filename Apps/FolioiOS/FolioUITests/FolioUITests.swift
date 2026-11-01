@@ -49,7 +49,7 @@ final class FolioUITests: XCTestCase {
             XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
             screenshot(app, "\(theme)-1-today")
             app.tabBars.buttons["Library"].tap()
-            XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["library-title"].waitForExistence(timeout: 5))
             screenshot(app, "\(theme)-2-library")
             app.tabBars.buttons["Listen"].tap()
             XCTAssertTrue(app.buttons["daily-mix"].waitForExistence(timeout: 10))

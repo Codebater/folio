@@ -22,7 +22,8 @@ struct ListenView: View {
     var body: some View {
         ScrollView {
             // Not lazy: the page is short, and UI tests can reach every control.
-            VStack(alignment: .leading, spacing: 32) {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenHeader { ScreenTitle(text: "Listen") } trailing: { optionsMenu }
                 if let item = listen.nowPlaying {
                     NowPlayingCard(item: item, showPremium: $showPremium)
                 }
@@ -36,9 +37,14 @@ struct ListenView: View {
                         Text("Stations appear here when you have unread stories. You can also open any article and tap the headphones. Everything plays offline with on-device voices.")
                     }
                 }
-                if let headlines = lineup.headlines {
-                    HeadlinesCard(station: headlines, isStarting: startingStationID == headlines.id) { start(headlines) }
+                // Two small tiles side by side: the news in minutes, and your own station.
+                HStack(spacing: 10) {
+                    if let headlines = lineup.headlines {
+                        HeadlinesCard(station: headlines, isStarting: startingStationID == headlines.id) { start(headlines) }
+                    }
+                    BuildYourOwnCard { showBuilder = true }
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 if !lineup.topics.isEmpty {
                     StationShelf(title: "Topic stations", subtitle: "One for each of your FreshRSS categories") {
                         ForEach(lineup.topics) { station in
@@ -60,17 +66,16 @@ struct ListenView: View {
                         }
                     }
                 }
-                BuildYourOwnCard { showBuilder = true }
                 UpNextSection(showQueue: $showQueue)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 4)
             .padding(.bottom, 40)
             .foregroundStyle(Color(theme.text))
         }
         .folioScreen(theme)
         .navigationTitle("Listen")
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { optionsMenu } }
+        .toolbar(.hidden, for: .navigationBar)
+        .softTopEdge()
         .navigationDestination(for: ArticleID.self) { ReaderView(articleID: $0) }
         .sheet(isPresented: $showPremium) { PremiumView() }
         .sheet(isPresented: $showBuilder) { BulletinBuilderView() }
@@ -101,7 +106,7 @@ struct ListenView: View {
                 Button("Edit Up Next", systemImage: "list.bullet") { showQueue = true }
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
+            HeaderButtonLabel(systemImage: "ellipsis")
         }
         .accessibilityLabel("Listen options")
     }
@@ -207,7 +212,8 @@ private struct DailyMixCard: View {
     var body: some View {
         Button(action: play) {
             Color.clear
-                .aspectRatio(1.25, contentMode: .fit)
+                .frame(height: 172)
+                .frame(maxWidth: .infinity)
                 .overlay {
                     if let imageURL {
                         ArticleThumbnail(url: imageURL, fallbackText: station.id, fallbackSymbol: "sparkles")
@@ -221,29 +227,29 @@ private struct DailyMixCard: View {
                 }
                 .overlay(alignment: .topLeading) {
                     Text("DAILY MIX")
-                        .font(.caption.weight(.bold)).tracking(1.4)
+                        .font(.caption2.weight(.bold)).tracking(1.3)
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(.black.opacity(0.35), in: Capsule())
-                        .padding(16)
+                        .padding(12)
                 }
                 .overlay(alignment: .bottomLeading) {
-                    HStack(alignment: .bottom, spacing: 16) {
-                        VStack(alignment: .leading, spacing: 5) {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(StationText.name(station))
-                                .font(.system(.largeTitle, design: .serif, weight: .bold))
+                                .font(.system(.title, design: .serif, weight: .bold))
                                 .lineLimit(1).minimumScaleFactor(0.7)
-                            Text(StationText.length(station)).font(.subheadline.weight(.semibold))
-                            Text(StationText.sources(station)).font(.footnote).opacity(0.85).lineLimit(1)
+                            Text("\(StationText.length(station)) · \(StationText.sources(station))")
+                                .font(.caption.weight(.semibold)).opacity(0.9).lineLimit(1)
                         }
                         .foregroundStyle(.white)
                         Spacer(minLength: 0)
-                        PlayDisc(isStarting: isStarting, size: 58)
+                        PlayDisc(isStarting: isStarting, size: 48)
                     }
-                    .padding(20)
+                    .padding(16)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
         }
         .buttonStyle(PressableStyle())
         .accessibilityElement(children: .ignore)
@@ -263,25 +269,27 @@ private struct HeadlinesCard: View {
 
     var body: some View {
         Button(action: play) {
-            HStack(spacing: 14) {
-                Image(systemName: "newspaper.fill")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background(Color(theme.accent), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Headlines").font(.system(.title3, design: .serif, weight: .bold))
-                    Text("\(StationText.length(station)) · two sentences per story").font(.subheadline).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: "newspaper.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Color(theme.accent), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    Spacer(minLength: 0)
+                    if isStarting {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "play.circle.fill").font(.system(size: 26)).foregroundStyle(Color(theme.accent))
+                    }
                 }
                 Spacer(minLength: 0)
-                if isStarting {
-                    ProgressView()
-                } else {
-                    Image(systemName: "play.circle.fill").font(.system(size: 34)).foregroundStyle(Color(theme.accent))
-                }
+                Text("Headlines").font(.system(.headline, design: .serif, weight: .bold))
+                Text(StationText.length(station)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
-            .padding(14)
-            .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(PressableStyle())
         .accessibilityElement(children: .ignore)
@@ -298,13 +306,13 @@ private struct StationShelf<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(.title2, design: .serif, weight: .bold)).accessibilityAddTraits(.isHeader)
-                if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(.secondary) }
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(.title3, design: .serif, weight: .bold)).accessibilityAddTraits(.isHeader)
+                if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 14) { content }
+                LazyHStack(alignment: .top, spacing: 10) { content }
                     .padding(.horizontal, 20)
             }
             .padding(.horizontal, -20)  // run to the screen edges
@@ -320,28 +328,28 @@ private struct StationTile: View {
 
     var body: some View {
         Button(action: play) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 5) {
                 Color.clear
-                    .frame(width: 164, height: 164)
+                    .frame(width: 128, height: 128)
                     .overlay { ThemeArtwork(key: station.id, symbol: "dot.radiowaves.left.and.right") }
                     .overlay(alignment: .bottomLeading) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("RADIO").font(.caption2.weight(.bold)).tracking(1.2).opacity(0.8)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("RADIO").font(.caption2.weight(.bold)).tracking(1.1).opacity(0.8)
                             Text(station.title)
-                                .font(.system(.title3, design: .serif, weight: .bold))
+                                .font(.system(.headline, design: .serif, weight: .bold))
                                 .lineLimit(2).minimumScaleFactor(0.75)
                                 .multilineTextAlignment(.leading)
                         }
                         .foregroundStyle(.white)
-                        .padding(14)
+                        .padding(10)
                     }
                     .overlay(alignment: .topTrailing) {
-                        if isStarting { ProgressView().tint(.white).padding(12) }
+                        if isStarting { ProgressView().tint(.white).padding(10) }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 Text(StationText.length(station))
-                    .font(.caption).foregroundStyle(.secondary)
-                    .frame(width: 164, alignment: .leading)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .frame(width: 128, alignment: .leading)
             }
         }
         .buttonStyle(PressableStyle())
@@ -360,22 +368,22 @@ private struct LanguageTile: View {
     var body: some View {
         Button(action: play) {
             Color.clear
-                .frame(width: 210, height: 104)
+                .frame(width: 156, height: 76)
                 .overlay { ThemeArtwork(key: station.id, symbol: "character.bubble") }
                 .overlay(alignment: .leading) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(StationText.languageName(station.title))
-                            .font(.system(.title2, design: .serif, weight: .bold))
+                            .font(.system(.title3, design: .serif, weight: .bold))
                             .lineLimit(1).minimumScaleFactor(0.7)
-                        Text(StationText.length(station)).font(.caption.weight(.semibold)).opacity(0.9)
+                        Text(StationText.length(station)).font(.caption2.weight(.semibold)).opacity(0.9)
                     }
                     .foregroundStyle(.white)
-                    .padding(16)
+                    .padding(12)
                 }
                 .overlay(alignment: .topTrailing) {
-                    if isStarting { ProgressView().tint(.white).padding(12) }
+                    if isStarting { ProgressView().tint(.white).padding(10) }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(PressableStyle())
         .accessibilityElement(children: .ignore)
@@ -392,18 +400,18 @@ private struct SourceBubble: View {
 
     var body: some View {
         Button(action: play) {
-            VStack(spacing: 8) {
+            VStack(spacing: 5) {
                 ThemeArtwork(key: station.title, initial: station.title)
-                    .frame(width: 96, height: 96)
+                    .frame(width: 64, height: 64)
                     .clipShape(Circle())
                     .overlay { if isStarting { ProgressView().tint(.white) } }
-                    .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                    .shadow(color: .black.opacity(0.1), radius: 5, y: 2)
                 Text(station.title)
-                    .font(.footnote.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .lineLimit(2).multilineTextAlignment(.center)
                 Text(StationText.length(station)).font(.caption2).foregroundStyle(.secondary)
             }
-            .frame(width: 104)
+            .frame(width: 78)
         }
         .buttonStyle(PressableStyle())
         .accessibilityElement(children: .ignore)
@@ -419,22 +427,23 @@ private struct BuildYourOwnCard: View {
 
     var body: some View {
         Button(action: open) {
-            HStack(spacing: 14) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color(theme.accent))
-                    .frame(width: 48, height: 48)
-                    .background(Color(theme.accent).opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Build your own station").font(.headline)
-                    Text("Choose length, languages, topics and sources.").font(.subheadline).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color(theme.accent))
+                        .frame(width: 30, height: 30)
+                        .background(Color(theme.accent).opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                 }
-                .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                Text("Your station").font(.system(.headline, design: .serif, weight: .bold))
+                Text("Length, topics, sources").font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
-            .padding(14)
-            .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(PressableStyle())
         .accessibilityIdentifier("build-bulletin")

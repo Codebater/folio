@@ -15,7 +15,7 @@ struct TodayView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 28) {
+            LazyVStack(alignment: .leading, spacing: 20) {
                 masthead
                 if let problem = model.storageProblem {
                     Label(problem, systemImage: "externaldrive.badge.exclamationmark").font(.footnote).foregroundStyle(.orange)
@@ -48,34 +48,56 @@ struct TodayView: View {
         .folioScreen(theme)
         .refreshable { await model.sync() }
         .navigationDestination(for: ArticleID.self) { ReaderView(articleID: $0) }
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsToolbarButton(showSettings: $showSettings) } }
+        .toolbar(.hidden, for: .navigationBar)
+        .softTopEdge()
         .task(id: model.revision) { await reload() }
     }
 
+    /// "Sunday 1. November": the day in the interface face, the date beside
+    /// it in the paper's serif, like a newspaper dateline.
     private var masthead: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Date().formatted(.dateTime.weekday(.wide)))
-                .font(.system(.largeTitle, design: .serif, weight: .bold))
-            HStack {
-                Text(Date().formatted(.dateTime.month(.wide).day()))
-                if model.reading.showsCounts {
-                    Text("·")
-                    Text("\(model.unread.total) unread")
+        ScreenHeader {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(Date().formatted(.dateTime.weekday(.wide)))
+                        .font(.system(.title2, weight: .heavy))
+                    Text(Self.dayAndMonth(Date()))
+                        .font(.system(.title2, design: .serif))
+                        .foregroundStyle(.secondary)
                 }
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                HStack(spacing: 5) {
+                    if model.reading.showsCounts {
+                        Text("\(model.unread.total) unread")
+                        Text("·")
+                    }
+                    SyncStatusLabel()
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            SyncStatusLabel().font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+        } trailing: {
+            SettingsToolbarButton(showSettings: $showSettings)
         }
-        .padding(.top, 8)
-        .accessibilityElement(children: .combine)
+    }
+
+    /// "1. November" (in Czech "1. listopadu"): the day, a full stop, the month written out.
+    static func dayAndMonth(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.dateFormat = "d. MMMM"
+        return formatter.string(from: date)
     }
 
     private var continueReading: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Continue reading")
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+                HStack(spacing: 10) {
                     ForEach(inProgress) { article in
                         NavigationLink(value: article.id) { ContinueCard(article: article) }.buttonStyle(.plain)
                     }
@@ -99,7 +121,7 @@ struct TodayView: View {
     }
 
     private var watchingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Watching")
             ForEach(watching, id: \.article.id) { match in
                 NavigationLink(value: match.article.id) {
@@ -152,20 +174,22 @@ private struct LeadStory: View {
     let article: ArticleSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ArticleThumbnail(url: article.leadImageURL, fallbackText: article.feedTitle)
-                .aspectRatio(16 / 10, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            Text(article.feedTitle.uppercased())
-                .font(.caption.weight(.semibold)).tracking(1).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 7) {
+            Color.clear
+                .frame(height: 172)
+                .frame(maxWidth: .infinity)
+                .overlay { ArticleThumbnail(url: article.leadImageURL, fallbackText: article.feedTitle) }
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.bottom, 3)
+            Text("\(article.feedTitle.uppercased()) · \(Format.relative(article.publishedAt)) · \(Format.readingTime(article.estimatedReadingMinutes))")
+                .font(.caption2.weight(.semibold)).tracking(0.8).foregroundStyle(.secondary).lineLimit(1)
             Text(article.title)
-                .font(.system(.title, design: .serif, weight: .bold))
+                .font(.system(.title2, design: .serif, weight: .bold))
+                .lineLimit(3)
                 .multilineTextAlignment(.leading)
             if !article.excerpt.isEmpty {
-                Text(article.excerpt).font(.system(.body, design: .serif)).foregroundStyle(.secondary).lineLimit(3)
+                Text(article.excerpt).font(.system(.subheadline, design: .serif)).foregroundStyle(.secondary).lineLimit(2)
             }
-            Text("\(Format.relative(article.publishedAt)) · \(Format.readingTime(article.estimatedReadingMinutes))")
-                .font(.caption).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -178,17 +202,17 @@ private struct ContinueCard: View {
     @Environment(\.folioTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(article.title)
-                .font(.system(.headline, design: .serif))
+                .font(.system(.subheadline, design: .serif, weight: .semibold))
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
             Spacer(minLength: 0)
             ProgressView(value: article.readingProgress ?? 0).tint(Color(theme.accent))
-            Text(article.feedTitle).font(.caption).foregroundStyle(.secondary)
+            Text(article.feedTitle).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
         }
-        .padding(14)
-        .frame(width: 220, height: 130, alignment: .topLeading)
+        .padding(12)
+        .frame(width: 192, height: 108, alignment: .topLeading)
         .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityValue("\(Int((article.readingProgress ?? 0) * 100)) percent read")
@@ -200,7 +224,7 @@ private struct TodaySection: View {
     let articles: [ArticleSummary]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             SectionHeader(title: title)
             ForEach(articles) { article in
                 NavigationLink(value: article.id) { ArticleRow(article: article) }.buttonStyle(.plain)
@@ -221,9 +245,9 @@ private struct QuickReadCard: View {
 
     var body: some View {
         let chosen = picks
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 9) {
             HStack {
-                Text("Got a few minutes?").font(.system(.title3, design: .serif, weight: .bold))
+                Text("Got a few minutes?").font(.system(.headline, design: .serif, weight: .bold))
                 Spacer()
                 Picker("Minutes", selection: $minutes) {
                     Text("5").tag(5)
@@ -231,7 +255,8 @@ private struct QuickReadCard: View {
                     Text("20").tag(20)
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 140)
+                .controlSize(.small)
+                .frame(width: 118)
                 .accessibilityLabel("Minutes to read")
             }
             if chosen.isEmpty {
@@ -255,8 +280,8 @@ private struct QuickReadCard: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(13)
+        .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("quick-read")
     }

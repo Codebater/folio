@@ -58,7 +58,7 @@ struct RootView: View {
     }
 }
 
-/// Settings button shared by the tab toolbars.
+/// Settings button shared by the tab headers.
 struct SettingsToolbarButton: View {
     @Binding var showSettings: Bool
 
@@ -66,9 +66,64 @@ struct SettingsToolbarButton: View {
         Button {
             showSettings = true
         } label: {
-            Image(systemName: "person.crop.circle")
+            HeaderButtonLabel(systemImage: "person.crop.circle")
         }
+        .buttonStyle(.borderless)  // in a list row, only the button is tappable
         .accessibilityLabel("Settings")
+    }
+}
+
+/// The top of a tab. It scrolls away with the page, so no sticky bar takes
+/// room at the top of the phone.
+struct ScreenHeader<Title: View, Trailing: View>: View {
+    @ViewBuilder var title: Title
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            title
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.top, 4)
+    }
+}
+
+/// A tab's name, set like the weekday on Today.
+struct ScreenTitle: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(.title2, weight: .heavy))
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// A round icon for buttons in a screen header.
+struct HeaderButtonLabel: View {
+    let systemImage: String
+    @Environment(\.folioTheme) private var theme
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Color(theme.accent))
+            .frame(width: 36, height: 36)
+            .background(Color(theme.surface), in: Circle())
+            .contentShape(Circle())
+    }
+}
+
+extension View {
+    /// Content scrolling under the status bar fades softly (iOS 26), now
+    /// that no navigation bar sits there.
+    @ViewBuilder func softTopEdge() -> some View {
+        if #available(iOS 26.0, *) {
+            self.scrollEdgeEffectStyle(.soft, for: .top)
+        } else {
+            self
+        }
     }
 }
 

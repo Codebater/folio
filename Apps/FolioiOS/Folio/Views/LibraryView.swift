@@ -27,6 +27,17 @@ struct LibraryView: View {
 
     var body: some View {
         List {
+            ScreenHeader {
+                VStack(alignment: .leading, spacing: 2) {
+                    ScreenTitle(text: "Library").accessibilityIdentifier("library-title")
+                    SyncStatusLabel().font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            } trailing: {
+                SettingsToolbarButton(showSettings: $showSettings)
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+            .listRowSeparator(.hidden)
             Section {
                 smartRow("Unread", "circle.inset.filled", .unread, count: model.unread.total)
                 smartRow("Saved", "star", .starred, count: model.unread.starred)
@@ -58,10 +69,11 @@ struct LibraryView: View {
         .listStyle(.insetGrouped)
         .folioScreen(theme)
         .navigationTitle("Library")
+        .toolbar(.hidden, for: .navigationBar)
+        .softTopEdge()
         .refreshable { await model.sync() }
         .navigationDestination(for: ArticleListRoute.self) { ArticleListView(route: $0) }
         .navigationDestination(for: ArticleID.self) { ReaderView(articleID: $0) }
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { SettingsToolbarButton(showSettings: $showSettings) } }
         .overlay {
             if model.feeds.isEmpty {
                 ContentUnavailableView("No feeds yet", systemImage: "dot.radiowaves.up.forward",
