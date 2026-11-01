@@ -66,13 +66,34 @@ struct BulletinPlannerTests {
             candidate("es", feed: "feed/3", feedTitle: "La Brújula", language: .spanish, hoursAgo: 3),
             candidate("sk", feed: "feed/4", feedTitle: "Horizont", language: .slovak, hoursAgo: 4),
         ], filters: RadioFilters(), now: morning))
+        // One language per section, each announced in its own language.
         #expect(bulletin.stories.map(\.introduction) == [
-            "First, from Field Notes: Story en.", "Als Nächstes, von Nachtschicht: Story de.",
-            "A continuación, de La Brújula: Story es.", "Ďalej Horizont: Story sk.",
+            "First, from Field Notes: Story en.", "Jetzt auf Deutsch. Zuerst, von Nachtschicht: Story de.",
+            "Ahora, en español. Primero, de La Brújula: Story es.", "Teraz po slovensky. Najprv Horizont: Story sk.",
         ])
         #expect(bulletin.opening.text.hasPrefix("Good morning. This is your Paperwire bulletin: 4 stories from 4 sources"))
         // Opens in the first story's language, closes in the last one's.
         #expect(bulletin.closing.text == "To je na teraz všetko. Ďakujeme, že ste počúvali.")
+    }
+
+    @Test func storiesComeInLanguageSectionsMainLanguageFirst() throws {
+        let bulletin = try #require(BulletinPlanner.build(candidates: [
+            candidate("de1", feed: "feed/2", feedTitle: "Nachtschicht", language: .german, hoursAgo: 1),
+            candidate("en1", feedTitle: "Field Notes", language: .english, hoursAgo: 2),
+            candidate("fr1", feed: "feed/5", feedTitle: "Le Fil", language: .french, hoursAgo: 3),
+            candidate("de2", feed: "feed/2", feedTitle: "Nachtschicht", language: .german, hoursAgo: 4),
+            candidate("x1", feedTitle: "Field Notes", language: nil, hoursAgo: 5),
+        ], filters: RadioFilters(), now: morning, bulletinLanguage: .english))
+        // English first although German is newer; unknown joins English; then by size.
+        #expect(bulletin.items.map(\.id.rawValue) == ["en1", "x1", "de1", "de2", "fr1"])
+        #expect(bulletin.stories.map { $0.language?.base } == ["en", "en", "de", "de", "fr"])
+        #expect(bulletin.stories[2].introduction.hasPrefix("Jetzt auf Deutsch. Zuerst, von Nachtschicht"))
+        #expect(bulletin.stories[3].introduction.hasPrefix("Als Nächstes, von Nachtschicht"))
+        // A language without phrases gets no English words, only names.
+        #expect(bulletin.stories[4].introduction.hasSuffix("Le Fil: Story fr1."))
+        #expect(!bulletin.stories[4].introduction.contains("from"))
+        #expect(bulletin.opening.language == .english)
+        #expect(bulletin.closing.language == .english)  // no French phrases: English closing
     }
 
     @Test func localizesOpeningsWithPlurals() {
@@ -191,8 +212,8 @@ struct RadioLineupTests {
 
     @Test func dailyMixCapsEachSource() throws {
         let mix = try #require(RadioLineup.build(candidates: pool, categories: [science, design, empty]).dailyMix)
-        #expect(mix.items.map(\.id.rawValue) == ["s1", "s2", "d1", "d2"])
-        #expect(mix.sources == ["Field Notes", "Form", "Grid"])
+        #expect(mix.items.map(\.id.rawValue) == ["s1", "s2", "d2", "d1"])  // German as its own section
+        #expect(mix.sources == ["Field Notes", "Grid", "Form"])
         #expect(mix.storyCount == 4 && mix.estimatedSeconds == 500)
         #expect(mix.id == "mix")
     }

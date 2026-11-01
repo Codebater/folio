@@ -51,10 +51,12 @@ public struct RadioLineup: Hashable, Sendable {
     public init() {}
 
     /// Length, story limit, order and mark-read come from `base` (the user's
-    /// News Radio settings); each station sets only its own scope.
+    /// News Radio settings); each station sets only its own scope. Stations
+    /// play `mainLanguage` first, then one section per other language.
     public static func build(
         candidates: [RadioCandidate], categories: [FeedCategory], base: RadioFilters = RadioFilters(),
-        rate: Double = 1, now: Date = Date(), maxSources: Int = 10, excluding duplicates: Set<ArticleID> = []
+        rate: Double = 1, now: Date = Date(), maxSources: Int = 10, excluding duplicates: Set<ArticleID> = [],
+        mainLanguage: LanguageCode = .english
     ) -> RadioLineup {
         var scope = base
         scope.feedIDs = []
@@ -66,7 +68,8 @@ public struct RadioLineup: Hashable, Sendable {
             var filters = scope
             edit(&filters)
             // The same news from several feeds plays once.
-            guard let plan = BulletinPlanner.build(candidates: candidates, filters: filters, rate: rate, now: now, excluding: duplicates,
+            guard let plan = BulletinPlanner.build(candidates: candidates, filters: filters, rate: rate, now: now,
+                                                   bulletinLanguage: mainLanguage, excluding: duplicates,
                                                    mode: kind == .headlines ? .headlines : .full)
             else { return nil }
             var seen: Set<String> = []

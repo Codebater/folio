@@ -44,6 +44,7 @@ public enum ArticleLanguage {
     public static func resolve(text: String, guesser: (any LanguageGuessing)?, feed: LanguageCode?,
                                fallback: LanguageCode?) -> LanguageCode? {
         let prior = feed ?? fallback
+        let text = prose(text)
         let words = TextNormalizer.wordCount(text)
         if let guesser, words >= minimumWords, let guess = guesser.guess(text) {
             if guess.language.base == prior?.base { return prior }
@@ -51,6 +52,44 @@ public enum ArticleLanguage {
             if guess.confidence >= needed { return guess.language }
         }
         return prior
+    }
+
+    /// Only the words someone wrote: links, e-mail addresses and numbers go.
+    /// A Hacker News item ("Article URL: https://… Comments URL: https://…
+    /// Points: 125 # Comments: 47") counted twenty words, mostly pieces of
+    /// links, and was guessed French; what's left is six words, too few to
+    /// guess from at all.
+    public static func prose(_ text: String) -> String {
+        text.split(whereSeparator: \.isWhitespace)
+            .filter { token in token.contains(where: \.isLetter) && !isAddress(token) }
+            .joined(separator: " ")
+    }
+
+    static func isAddress(_ token: Substring) -> Bool {
+        let word = token.trimmingCharacters(in: CharacterSet(charactersIn: "()[]<>{}\"'.,;:!?«»“”‘’"))
+        let lower = word.lowercased()
+        if lower.contains("://") || lower.hasPrefix("www.") || lower.hasPrefix("mailto:") { return true }
+        if word.contains("@"), word.contains(".") { return true }
+        // Bare domains and paths: github.com, example.org/page. Not "e.g." or
+        // "U.S.", whose parts are single letters, nor "Node.js" in capitals.
+        let parts = word.split(separator: ".")
+        return word == lower && parts.count >= 2 && parts.allSatisfy { $0.count >= 2 }
+            && parts.last!.prefix { $0.isLetter }.count >= 2
+    }
+
+    /// The language to narrate in, from the ones the reader has turned on
+    /// (main first). Anything else, which is usually a wrong guess, is read
+    /// in the main language. An empty list allows every language.
+    public static func narrated(_ language: LanguageCode?, allowed: [String]) -> LanguageCode? {
+        guard !allowed.isEmpty else { return language }
+        if let language, allowed.contains(language.base) { return language }
+        return allowed.first.map { LanguageCode($0) }
+    }
+
+    /// `language` when the reader has it turned on, otherwise nil.
+    public static func permitted(_ language: LanguageCode?, allowed: [String]) -> LanguageCode? {
+        guard let language else { return nil }
+        return allowed.isEmpty || allowed.contains(language.base) ? language : nil
     }
 
     /// The language a feed writes in: at least 70 % of its articles with a

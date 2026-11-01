@@ -122,6 +122,20 @@ final class FolioUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Voice Lab"].waitForExistence(timeout: 5))
     }
 
+    func testLanguagesHaveTheirOwnSettings() {
+        let app = launch()
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
+        app.buttons["Settings"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        let languages = app.buttons["languages-settings"]
+        scrollTo(languages, in: app)
+        languages.tap()
+        XCTAssertTrue(app.navigationBars["Languages"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.switches["read-aloud-en"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.switches["read-aloud-de"].exists)
+        screenshot(app, "languages-settings")
+    }
+
     func testHoldingTheMiniPlayerClosesNarration() {
         let app = launch()
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))

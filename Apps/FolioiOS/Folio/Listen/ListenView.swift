@@ -88,7 +88,8 @@ struct ListenView: View {
         } message: { _ in
             Text("Up Next is replaced by this station.")
         }
-        .task(id: [AnyHashable(model.revision), AnyHashable(listen.preferences.radioFilters), AnyHashable(listen.preferences.rate)]) {
+        .task(id: [AnyHashable(model.revision), AnyHashable(listen.preferences.radioFilters), AnyHashable(listen.preferences.rate),
+                   AnyHashable(listen.readAloudLanguages)]) {
             let result = await listen.lineup()
             lineup = result.lineup
             images = result.images
@@ -982,7 +983,10 @@ struct BulletinBuilderView: View {
     @State private var preview: Bulletin?
     @State private var confirmReplace = false
 
-    private let languages: [(code: String, name: String)] = [("en", "English"), ("de", "German"), ("es", "Spanish"), ("sk", "Slovak")]
+    /// The languages read aloud: a story in any other is read in the main one.
+    private var languages: [(code: String, name: String)] {
+        listen.readAloudLanguages.map { ($0, VoiceText.language($0)) }
+    }
 
     var body: some View {
         @Bindable var listen = listen

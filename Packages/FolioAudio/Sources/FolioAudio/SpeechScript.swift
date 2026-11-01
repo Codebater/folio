@@ -80,6 +80,10 @@ public struct SpeechScriptOptions: Sendable {
     /// Base languages a paragraph may switch to (the languages the reader
     /// actually reads); nil allows any.
     public var switchLanguages: Set<String>?
+    /// The languages the reader has turned on, main first. Narration never
+    /// speaks any other: an article guessed to be in one is read in the
+    /// main language. Empty allows every language.
+    public var readAloudLanguages: [String] = []
     /// When nothing else says which language an article is in: the language
     /// most of the library uses. Better than the phone's language, which a
     /// Spanish-speaking reader of English news would otherwise hear.
@@ -237,9 +241,13 @@ public struct SpeechScript: Sendable {
         announcementsAfter: [SpeechAnnouncement] = []
     ) -> SpeechScript {
         let sample = String(document.blocks.filter(\.isSpeakable).map(\.text).joined(separator: " ").prefix(3000))
-        let language = options.language ?? ArticleLanguage.resolve(
-            text: sample, guesser: languageGuesser, feed: options.feedLanguage,
-            fallback: options.detectedLanguage ?? document.language) ?? options.defaultLanguage
+        let allowed = options.readAloudLanguages
+        let language = options.language ?? ArticleLanguage.narrated(
+            ArticleLanguage.resolve(
+                text: sample, guesser: languageGuesser, feed: ArticleLanguage.permitted(options.feedLanguage, allowed: allowed),
+                fallback: ArticleLanguage.permitted(options.detectedLanguage ?? document.language, allowed: allowed))
+                ?? options.defaultLanguage,
+            allowed: allowed)
         var segments: [SpeechSegment] = []
         var order: [String] = []
 
@@ -279,11 +287,13 @@ public struct SpeechScript: Sendable {
 
 
         func blockLanguage(_ text: String) -> LanguageCode? {
+            let words = ArticleLanguage.prose(text)
             guard options.language == nil, options.switchLanguagePerParagraph, let languageGuesser,
-                  TextNormalizer.wordCount(text) >= minimumSwitchWords,
-                  let guess = languageGuesser.guess(text), guess.confidence >= minimumSwitchConfidence,
+                  TextNormalizer.wordCount(words) >= minimumSwitchWords,
+                  let guess = languageGuesser.guess(words), guess.confidence >= minimumSwitchConfidence,
                   guess.language.base != language?.base,
                   options.switchLanguages?.contains(guess.language.base) ?? true,
+                  allowed.isEmpty || allowed.contains(guess.language.base),
                   !Self.closeRelatives(guess.language, language)
             else { return language }
             return guess.language

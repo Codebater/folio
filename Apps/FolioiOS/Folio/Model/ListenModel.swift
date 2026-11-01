@@ -54,6 +54,9 @@ struct ListenPreferences: Codable, Equatable {
     var highlightStyle: NarrationHighlightStyle = .wordAndSentence
     /// The user removed the natural voices: Ivy isn't downloaded again by itself.
     var naturalVoicesRemoved = false
+    /// The languages narration speaks, main first; nil until the reader
+    /// chooses (then the library's own languages are used).
+    var readAloudLanguages: [String]?
 
     init() {}
 
@@ -81,6 +84,7 @@ struct ListenPreferences: Codable, Equatable {
         serverVoiceIDs = try c.decodeIfPresent([String].self, forKey: .serverVoiceIDs) ?? []
         highlightStyle = try c.decodeIfPresent(NarrationHighlightStyle.self, forKey: .highlightStyle) ?? defaults.highlightStyle
         naturalVoicesRemoved = try c.decodeIfPresent(Bool.self, forKey: .naturalVoicesRemoved) ?? false
+        readAloudLanguages = try c.decodeIfPresent([String].self, forKey: .readAloudLanguages)
     }
 }
 
@@ -248,17 +252,29 @@ final class ListenModel {
         }
     }
 
+    /// The languages narration speaks, main first: the reader's choice in
+    /// Settings › Languages, or the library's well-established languages.
+    var readAloudLanguages: [String] {
+        if let chosen = preferences.readAloudLanguages, !chosen.isEmpty { return chosen }
+        return app?.automaticReadAloudLanguages ?? ["en"]
+    }
+
+    /// Stations start in it, and anything in a language that's off is read in it.
+    var mainLanguage: LanguageCode { LanguageCode(readAloudLanguages.first ?? "en") }
+
     /// `detected` is the sync-time guess; the script checks it against the
     /// article's own text. Only the user's override forces a language.
     func scriptOptions(detected: LanguageCode?) -> SpeechScriptOptions {
-        SpeechScriptOptions(
+        var options = SpeechScriptOptions(
             granularity: preferences.granularity, includeTitle: preferences.includeTitle,
             paragraphPause: preferences.paragraphPause, language: preferences.languageOverride.map { LanguageCode($0) },
             pronunciation: PronunciationRules(userEntries: app?.entitlements.isPremium == true ? preferences.pronunciations : []),
             cleanup: preferences.cleanup,
             switchLanguagePerParagraph: preferences.languageOverride == nil && preferences.switchLanguagePerParagraph,
             announceSource: preferences.announceSource, detectedLanguage: detected,
-            defaultLanguage: app?.libraryLanguages.first.map { LanguageCode($0) })
+            defaultLanguage: mainLanguage)
+        options.readAloudLanguages = readAloudLanguages
+        return options
     }
 
     var highlight: NarrationHighlight? {
@@ -369,7 +385,8 @@ final class ListenModel {
         guard let app else { return (RadioLineup(), [:]) }
         let pool = await app.radioPool()
         let lineup = RadioLineup.build(candidates: pool.candidates, categories: app.categories,
-                                       base: preferences.radioFilters, rate: preferences.rate, excluding: app.duplicates)
+                                       base: preferences.radioFilters, rate: preferences.rate, excluding: app.duplicates,
+                                       mainLanguage: mainLanguage)
         return (lineup, pool.images)
     }
 
@@ -387,10 +404,8 @@ final class ListenModel {
     private func queueBulletin(filters: RadioFilters, mode: Bulletin.Mode = .full) async -> Bool {
         guard let app else { return false }
         let candidates = await app.radioCandidates()
-        let language = LanguageCode(Locale.preferredLanguages.first ?? "en")
-        let spoken = LanguageCode.tuned.contains { $0.base == language.base } ? LanguageCode(language.base) : .english
-        guard let planned = BulletinPlanner.build(candidates: candidates, filters: filters,
-                                                  rate: preferences.rate, bulletinLanguage: spoken, excluding: app.duplicates, mode: mode)
+        guard let planned = BulletinPlanner.build(candidates: candidates, filters: filters, rate: preferences.rate,
+                                                  bulletinLanguage: mainLanguage, excluding: app.duplicates, mode: mode)
         else { return false }
         bulletin = planned
         controller.restore(current: planned.items.first, at: nil, upNext: Array(planned.items.dropFirst()))
@@ -400,7 +415,8 @@ final class ListenModel {
 
     func previewBulletin() async -> Bulletin? {
         guard let app else { return nil }
-        return BulletinPlanner.build(candidates: await app.radioCandidates(), filters: preferences.radioFilters, rate: preferences.rate)
+        return BulletinPlanner.build(candidates: await app.radioCandidates(), filters: preferences.radioFilters, rate: preferences.rate,
+                                     bulletinLanguage: mainLanguage)
     }
 
     var hasQueue: Bool { state.item != nil || !state.upNext.isEmpty }
@@ -419,10 +435,17 @@ final class ListenModel {
 
     // MARK: Voice Library
 
-    /// The reader's own languages: what the library is written in, then the device languages.
+    /// The reader's own languages: the ones read aloud, what the library is
+    /// written in, then the device languages.
     var preferredLanguages: [String] {
         let device = Locale.preferredLanguages.map { LanguageCode($0).base }
-        return ((app?.libraryLanguages ?? []) + device).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        return (readAloudLanguages + (app?.libraryLanguages ?? []) + device).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+    }
+
+    /// The voice that reads a language: the chosen one, Ivy, or Apple's pick.
+    func narratingVoice(for language: String) -> SpeechVoice? {
+        if let id = chosenVoiceID(for: language), let voice = voices.first(where: { $0.id == id }) { return voice }
+        return defaultVoice(for: language)
     }
 
     func voiceSections(filter: VoiceFilter) -> [VoiceSection] {

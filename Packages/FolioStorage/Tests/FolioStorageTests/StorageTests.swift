@@ -254,6 +254,23 @@ struct FullTextStorageTests {
         #expect(try await store.feedLanguageCounts() == ["feed/1": ["en": 2]])
     }
 
+    @Test func summaryGuessesCanBeCheckedAgain() async throws {
+        let store = try ArticleStore.inMemory(clock: FixedClock(now: now))
+        var a = summary("1", words: 20); a.language = .french
+        var b = summary("2", words: 20); b.language = .english
+        var c = summary("3", words: 20); c.language = .german
+        try await store.upsert([a, b, c])
+        try await store.setFullText("<p>The whole article.</p>", wordCount: 900, language: .german, for: "3")
+        // Only guesses from the feed's own text come back; a full text's stays.
+        let rows = try await store.feedTextLanguages()
+        #expect(Set(rows.map(\.id)) == ["1", "2"])
+        #expect(rows.first { $0.id == "1" }?.html == "<p>Short summary 1.</p>")
+        try await store.setLanguages(["1": nil, "2": LanguageCode("en-GB")])
+        #expect(try await store.article("1")?.language == nil)
+        #expect(try await store.article("2")?.language == LanguageCode("en-GB"))
+        #expect(try await store.article("3")?.language == .german)
+    }
+
     @Test func unavailablePagesAreNotRetriedUntilAsked() async throws {
         let store = try ArticleStore.inMemory(clock: FixedClock(now: now))
         try await store.upsert([summary("1", words: 30), summary("2", words: 40, daysAgo: 1), summary("3", words: 900),

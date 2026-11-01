@@ -7,9 +7,14 @@ import FolioAudio
 /// the row for its settings.
 struct VoiceLibraryView: View {
     @Environment(ListenModel.self) private var listen
-    @State private var filter = VoiceFilter()
+    @State private var filter: VoiceFilter
     @State private var showGetMore = false
     @State private var personalVoiceDenied = false
+
+    /// `language` opens the library on one language's voices.
+    init(language: String? = nil) {
+        _filter = State(initialValue: VoiceFilter(language: language))
+    }
 
     var body: some View {
         List {
@@ -406,10 +411,9 @@ struct GetMoreVoicesView: View {
     }
 }
 
-/// How narration flows: segments, pauses, title, languages.
+/// How narration flows: segments, pauses, title, highlight.
 struct ListeningStyleView: View {
     @Environment(ListenModel.self) private var listen
-    private let languages = ["en", "de", "es", "sk", "cs"]
 
     var body: some View {
         @Bindable var listen = listen
@@ -439,18 +443,6 @@ struct ListeningStyleView: View {
                 Text("While listening")
             } footer: {
                 Text("The sentence being read is shaded and the word is marked on top. With voices that give no word timing, Paperwire reads sentence by sentence and shows the sentence.")
-            }
-            Section {
-                Picker("Language", selection: $listen.preferences.languageOverride) {
-                    Text("Detect automatically").tag(String?.none)
-                    ForEach(languages, id: \.self) { Text(VoiceText.language($0)).tag(Optional($0)) }
-                }
-                Toggle("Switch voices for paragraphs in another language", isOn: $listen.preferences.switchLanguagePerParagraph)
-                    .disabled(listen.preferences.languageOverride != nil)
-            } header: {
-                Text("Languages")
-            } footer: {
-                Text("Paperwire reads each article in the language of its own text, guided by the language its feed usually uses. An English article quoting a long German paragraph reads that paragraph with your German voice; short passages and languages none of your feeds use keep the article's voice.")
             }
         }
         .navigationTitle("Listening style")

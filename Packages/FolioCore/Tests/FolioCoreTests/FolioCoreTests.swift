@@ -106,6 +106,25 @@ struct ArticleLanguageTests {
         #expect(ArticleLanguage.resolve(text: "Le Mans", guesser: sure, feed: nil, fallback: nil) == nil)
     }
 
+    @Test func linksAndNumbersAreNotWords() {
+        // A Hacker News item: twenty "words" before, mostly pieces of links.
+        let item = "Article URL: https://github.com/acme/tool Comments URL: https://news.ycombinator.com/item?id=4242 Points: 125 # Comments: 47"
+        #expect(ArticleLanguage.prose(item) == "Article URL: Comments URL: Points: Comments:")
+        let sure = FixedGuesser(language: .french, confidence: 0.99)
+        #expect(ArticleLanguage.resolve(text: item, guesser: sure, feed: nil, fallback: nil) == nil)
+        #expect(ArticleLanguage.prose("See example.org/page, mail me@site.io or www.site.com (e.g. U.S. data) in Node.js")
+            == "See mail or (e.g. U.S. data) in Node.js")
+    }
+
+    @Test func narrationKeepsToTheLanguagesTurnedOn() {
+        #expect(ArticleLanguage.narrated(.french, allowed: ["en", "de"]) == .english)
+        #expect(ArticleLanguage.narrated(LanguageCode("de-AT"), allowed: ["en", "de"]) == LanguageCode("de-AT"))
+        #expect(ArticleLanguage.narrated(nil, allowed: ["de", "en"]) == .german)
+        #expect(ArticleLanguage.narrated(.french, allowed: []) == .french)
+        #expect(ArticleLanguage.permitted(.french, allowed: ["en"]) == nil)
+        #expect(ArticleLanguage.permitted(.english, allowed: ["en"]) == .english)
+    }
+
     @Test func feedsHaveALanguageOnlyWhenMostlyOne() {
         #expect(ArticleLanguage.dominant(["en": 40, "fr": 3]) == .english)
         #expect(ArticleLanguage.dominant(["en": 6, "de": 5]) == nil)  // a bilingual feed

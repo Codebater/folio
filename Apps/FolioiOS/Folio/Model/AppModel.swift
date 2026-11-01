@@ -54,6 +54,8 @@ final class AppModel {
     }
     /// Languages of the library, most common first (for the Voice Library).
     private(set) var libraryLanguages: [String] = []
+    /// How many stored articles each language has.
+    private(set) var libraryLanguageCounts: [String: Int] = [:]
     /// The language each feed usually writes in (feeds that mix have none).
     @ObservationIgnored private(set) var feedLanguages: [FeedID: LanguageCode] = [:]
     /// Languages the reader actually reads: narration only switches voice
@@ -136,6 +138,7 @@ final class AppModel {
         if Self.isUIReset { try? await store.reset() }
         configureSync()
         await refreshMetadata()
+        Task { await recheckLanguages() }
         if account == nil && Self.isDemoLaunch {
             await useDemo()
         } else if account != nil {
@@ -341,12 +344,47 @@ final class AppModel {
         unread = (try? await store.unreadCounts()) ?? UnreadCounts()
         let languages = (try? await store.languageCounts()) ?? []
         libraryLanguages = languages.map(\.language)
+        libraryLanguageCounts = Dictionary(languages.map { ($0.language, $0.count) }, uniquingKeysWith: +)
         let total = languages.reduce(0) { $0 + $1.count }
         // A few misdetected articles must not make a language "read".
         readingLanguages = Set(languages.filter { $0.count >= 10 || Double($0.count) >= Double(total) * 0.03 }.map(\.language))
         feedLanguages = ((try? await store.feedLanguageCounts()) ?? [:]).compactMapValues { ArticleLanguage.dominant($0) }
         await refreshStoryGroups()
         revision += 1
+    }
+
+    /// Read aloud until the reader chooses in Settings › Languages: the
+    /// languages they clearly read, most common first, or the phone's
+    /// language before anything is synced.
+    var automaticReadAloudLanguages: [String] {
+        let read = libraryLanguages.filter(readingLanguages.contains)
+        if !read.isEmpty { return read }
+        return [libraryLanguages.first ?? LanguageCode(Locale.preferredLanguages.first ?? "en").base]
+    }
+
+    /// Guesses made before links stopped counting as words are made again,
+    /// once. Hacker News items ("Article URL: https://… Points: 125") came
+    /// out French, which made the whole feed French and its stories start
+    /// in a French voice.
+    private func recheckLanguages() async {
+        let key = "folio.languageRules"
+        guard UserDefaults.standard.integer(forKey: key) < 2 else { return }
+        let store = store
+        let guesser = languageGuesser
+        let changes = await Task.detached(priority: .utility) { () -> [ArticleID: LanguageCode?] in
+            var changes: [ArticleID: LanguageCode?] = [:]
+            for row in (try? await store.feedTextLanguages()) ?? [] {
+                let language = ArticleParser.parse(html: row.html, title: row.title, languageGuesser: guesser).language
+                if language?.base != row.language.base { changes.updateValue(language, forKey: row.id) }
+            }
+            return changes
+        }.value
+        if !changes.isEmpty {
+            try? await store.setLanguages(changes)
+            documents.removeAll()
+            await refreshMetadata()
+        }
+        UserDefaults.standard.set(2, forKey: key)
     }
 
     /// A spoken summary for Siri: the unread count and the three newest stories.
@@ -506,7 +544,7 @@ final class AppModel {
         let feedID = loaded.stored.article.feedID
         var options = listen.scriptOptions(detected: loaded.stored.language)
         options.feedLanguage = feedLanguages[feedID]
-        options.switchLanguages = narrationLanguages(feedID: feedID, detected: loaded.stored.language)
+        options.switchLanguages = narrationLanguages
         options.sourceName = feeds.first { $0.id == feedID }?.title
         options.authorName = loaded.stored.article.author
         if entitlements.isPremium, let voiceID = listen.preferences.feedVoices[loaded.stored.article.feedID.rawValue],
@@ -515,9 +553,16 @@ final class AppModel {
             options.preferredVoice = PreferredVoice(id: voice.id, languageBase: voice.languageCode.base)
         }
         let bulletin = listen.bulletin
-        if bulletin?.contains(id) == true { options.includeTitle = false }
+        if let story = bulletin?.stories.first(where: { $0.item.id == id }) {
+            options.includeTitle = false
+            // Stations play one language per section: a story is read in its
+            // section's language unless its own text clearly says otherwise,
+            // and its voice never changes halfway through.
+            options.feedLanguage = story.language ?? options.feedLanguage
+            options.switchLanguagePerParagraph = false
+        }
         let (before, after) = bulletin?.announcements(for: id) ?? ([], [])
-        let guesser = narrationGuesser(feedID: feedID, detected: loaded.stored.language)
+        let guesser = narrationGuesser(feedID: feedID)
         var script = SpeechScript.build(document: loaded.document, title: loaded.stored.article.title, articleID: id,
                                         options: options, languageGuesser: guesser,
                                         announcementsBefore: before, announcementsAfter: after)
@@ -530,37 +575,42 @@ final class AppModel {
         return script
     }
 
-    /// Languages narration may use for this article: the ones the reader
-    /// reads, the feed's own, the article's guess and any with a chosen voice.
-    private func narrationLanguages(feedID: FeedID, detected: LanguageCode?) -> Set<String> {
-        var languages = readingLanguages.union(listen.preferences.voiceByLanguage.keys)
-        for language in [feedLanguages[feedID], detected, listen.preferences.languageOverride.map { LanguageCode($0) }] {
-            if let base = language?.base, !base.isEmpty { languages.insert(base) }
-        }
+    /// Languages narration may use: the ones the reader has turned on, and
+    /// a language they force in Settings › Languages.
+    private var narrationLanguages: Set<String> {
+        var languages = Set(listen.readAloudLanguages)
+        if let forced = listen.preferences.languageOverride { languages.insert(LanguageCode(forced).base) }
         return languages
     }
 
-    /// Language identification for narration, limited to plausible languages
-    /// and tipped towards the feed's usual one.
-    private func narrationGuesser(feedID: FeedID, detected: LanguageCode?) -> NaturalLanguageGuesser {
-        let languages = narrationLanguages(feedID: feedID, detected: detected)
-        // Constraints only help once the library has told us what is read.
-        return NaturalLanguageGuesser(constraints: readingLanguages.isEmpty ? [] : languages, hint: feedLanguages[feedID])
+    /// Language identification for narration: only the languages that are
+    /// on can come out, tipped towards the feed's usual one.
+    private func narrationGuesser(feedID: FeedID) -> NaturalLanguageGuesser {
+        NaturalLanguageGuesser(constraints: narrationLanguages,
+                               hint: ArticleLanguage.permitted(feedLanguages[feedID], allowed: listen.readAloudLanguages))
     }
 
     /// The language an article is read in, from its own text where possible.
-    func articleLanguage(_ loaded: LoadedArticle) -> LanguageCode? {
+    /// `prior` (a station section's language) stands in for the feed's.
+    func articleLanguage(_ loaded: LoadedArticle, prior: LanguageCode? = nil) -> LanguageCode? {
         let feedID = loaded.stored.article.feedID
+        let allowed = listen.readAloudLanguages
         let sample = loaded.document.blocks.filter(\.isSpeakable).map(\.text).joined(separator: " ").prefix(3000)
-        return ArticleLanguage.resolve(text: String(sample), guesser: narrationGuesser(feedID: feedID, detected: loaded.stored.language),
-                                       feed: feedLanguages[feedID], fallback: loaded.stored.language ?? loaded.document.language)
+        let resolved = ArticleLanguage.resolve(
+            text: String(sample), guesser: narrationGuesser(feedID: feedID),
+            feed: ArticleLanguage.permitted(prior ?? feedLanguages[feedID], allowed: allowed),
+            fallback: ArticleLanguage.permitted(loaded.stored.language ?? loaded.document.language, allowed: allowed))
+        return ArticleLanguage.narrated(resolved, allowed: allowed)
     }
 
     /// The language to plan a station with, before the article's text is
-    /// loaded: a long article's own guess, otherwise its feed's usual one.
+    /// loaded: a long article's own guess, otherwise its feed's usual one,
+    /// otherwise the main language. Only languages that are on.
     func plannedLanguage(feedID: FeedID, guess: LanguageCode?, wordCount: Int) -> LanguageCode? {
+        let allowed = listen.readAloudLanguages
+        let guess = ArticleLanguage.permitted(guess, allowed: allowed)
         if wordCount >= ArticleLanguage.decisiveWords, let guess { return guess }
-        return feedLanguages[feedID] ?? guess
+        return ArticleLanguage.narrated(ArticleLanguage.permitted(feedLanguages[feedID], allowed: allowed) ?? guess, allowed: allowed)
     }
 
     /// A story read as a headline: its introduction, then two sentences. For
@@ -569,7 +619,8 @@ final class AppModel {
     private func headlineScript(for id: ArticleID, bulletin: Bulletin) async -> SpeechScript? {
         guard let loaded = await load(id) else { return nil }
         let stored = loaded.stored
-        let language = listen.preferences.languageOverride.map { LanguageCode($0) } ?? articleLanguage(loaded)
+        let story = bulletin.stories.first { $0.item.id == id }
+        let language = listen.preferences.languageOverride.map { LanguageCode($0) } ?? articleLanguage(loaded, prior: story?.language)
         var text = ""
         if stored.fullHTML != nil {
             let feedVersion = ArticleParser.parse(html: stored.article.contentHTML, baseURL: stored.article.url, title: stored.article.title)

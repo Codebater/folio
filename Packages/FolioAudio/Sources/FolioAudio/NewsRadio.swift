@@ -42,9 +42,10 @@ public struct RadioCandidate: Hashable, Sendable {
 }
 
 /// A planned bulletin: an opening, a short spoken introduction before each
-/// story (in the story's own language), and a closing. The stories play
-/// through the ordinary listening queue; the bulletin only adds the
-/// announcements around them.
+/// story (in the story's own language), and a closing. Stories come in
+/// language sections, the main language first, so the voice changes only
+/// where a new section is announced. The stories play through the ordinary
+/// listening queue; the bulletin only adds the announcements around them.
 public struct Bulletin: Hashable, Sendable, Codable {
     public struct Story: Hashable, Sendable, Codable {
         public var item: ListenItem
@@ -96,7 +97,9 @@ public enum BulletinPlanner {
 
     /// Picks unread stories that match the filters and fit the time budget.
     /// Stories longer than the remaining time are skipped, never truncated,
-    /// so a short story further down can still fill the gap.
+    /// so a short story further down can still fill the gap. The chosen
+    /// stories are then grouped by language, `bulletinLanguage` (the
+    /// reader's main language) first.
     public static func build(
         candidates: [RadioCandidate], filters: RadioFilters, rate: Double = 1, now: Date = Date(),
         bulletinLanguage: LanguageCode = .english, excluding: Set<ArticleID> = [], mode: Bulletin.Mode = .full
@@ -133,6 +136,7 @@ public enum BulletinPlanner {
             perFeed[candidate.feedID, default: 0] += 1
         }
         guard !chosen.isEmpty else { return nil }
+        chosen = sectioned(chosen, main: bulletinLanguage)
         // The opening speaks the first story's language and the closing the
         // last one's, so the voice flows straight into and out of the news.
         // A Spanish phone with English feeds opens in English.
@@ -140,10 +144,13 @@ public enum BulletinPlanner {
         let closingLanguage = spokenLanguage(of: chosen.last, fallback: spoken)
 
         let stories = chosen.enumerated().map { index, candidate in
-            Bulletin.Story(
-                item: candidate.item, language: candidate.language ?? spoken,
-                introduction: Phrases.introduction(feed: candidate.item.feedTitle, title: candidate.item.title,
-                                                   isFirst: index == 0, language: candidate.language ?? spoken),
+            let language = candidate.language ?? bulletinLanguage
+            let opensSection = index > 0 && (chosen[index - 1].language ?? bulletinLanguage).base != language.base
+            let introduction = Phrases.introduction(feed: candidate.item.feedTitle, title: candidate.item.title,
+                                                    isFirst: index == 0 || opensSection, language: language)
+            return Bulletin.Story(
+                item: candidate.item, language: language,
+                introduction: opensSection ? Phrases.section(language: language) + " " + introduction : introduction,
                 estimatedSeconds: seconds(candidate))
         }
         let sources = Set(chosen.map(\.feedID)).count
@@ -154,6 +161,25 @@ public enum BulletinPlanner {
                                                         language: spoken), language: spoken),
             closing: SpeechAnnouncement(Phrases.closing(language: closingLanguage), language: closingLanguage),
             createdAt: now, markReadWhenFinished: filters.markReadWhenFinished, mode: mode)
+    }
+
+    /// Stories grouped by language: `main` first, then the others by how
+    /// many stories they have (ties in order of appearance). Each section
+    /// keeps the planned order. Stories of unknown language join `main`.
+    static func sectioned(_ stories: [RadioCandidate], main: LanguageCode) -> [RadioCandidate] {
+        var order: [String] = []
+        var groups: [String: [RadioCandidate]] = [:]
+        for story in stories {
+            let key = (story.language ?? main).base
+            if groups[key] == nil { order.append(key) }
+            groups[key, default: []].append(story)
+        }
+        let ranked = order.enumerated().sorted { a, b in
+            if (a.element == main.base) != (b.element == main.base) { return a.element == main.base }
+            let (countA, countB) = (groups[a.element]!.count, groups[b.element]!.count)
+            return countA != countB ? countA > countB : a.offset < b.offset
+        }
+        return ranked.flatMap { groups[$0.element]! }
     }
 
     static func estimate(words: Int, rate: Double) -> Int {
@@ -196,7 +222,24 @@ public enum BulletinPlanner {
             case "es": return isFirst ? "Primero, de \(feed): \(title)." : "A continuación, de \(feed): \(title)."
             case "sk": return isFirst ? "Najprv \(feed): \(title)." : "Ďalej \(feed): \(title)."
             case "cs": return isFirst ? "Nejprve \(feed): \(title)." : "Dále \(feed): \(title)."
-            default: return isFirst ? "First, from \(feed): \(title)." : "Next, from \(feed): \(title)."
+            case "en": return isFirst ? "First, from \(feed): \(title)." : "Next, from \(feed): \(title)."
+            // No English words in a voice for another language.
+            default: return "\(feed): \(title)."
+            }
+        }
+
+        /// Said before the first story of each language section after the
+        /// first, in that language, so the new voice arrives with a heading.
+        static func section(language: LanguageCode) -> String {
+            switch language.base {
+            case "en": return "Now, in English."
+            case "de": return "Jetzt auf Deutsch."
+            case "es": return "Ahora, en español."
+            case "sk": return "Teraz po slovensky."
+            case "cs": return "Teď česky."
+            default:
+                let locale = Locale(identifier: language.base)
+                return (locale.localizedString(forLanguageCode: language.base)?.capitalized(with: locale) ?? language.base.uppercased()) + "."
             }
         }
 

@@ -494,6 +494,21 @@ public actor ArticleStore {
         return counts
     }
 
+    /// Articles whose language was guessed from the feed's own text (no
+    /// full text fetched), for guessing again when the rules change.
+    public func feedTextLanguages() throws -> [(id: ArticleID, html: String, title: String, language: LanguageCode)] {
+        try db.query("SELECT id, content_html, title, language FROM articles WHERE language IS NOT NULL AND full_status <> 1") {
+            (ArticleID($0.string(0) ?? ""), $0.string(1) ?? "", $0.string(2) ?? "", LanguageCode($0.string(3) ?? ""))
+        }
+    }
+
+    /// Replaces stored languages; nil clears a guess that no longer holds.
+    public func setLanguages(_ languages: [ArticleID: LanguageCode?]) throws {
+        try db.transaction {
+            try db.runBatch("UPDATE articles SET language = ? WHERE id = ?", Array(languages)) { [$0.value?.rawValue, $0.key.rawValue] }
+        }
+    }
+
     /// Unread articles whose title matches a mute rule.
     public func unreadArticles(matching rules: MuteRules) throws -> [ArticleID] {
         guard !rules.isEmpty else { return [] }

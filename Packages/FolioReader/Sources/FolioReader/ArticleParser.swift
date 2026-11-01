@@ -487,8 +487,9 @@ final class DocumentBuilder {
             if case .image(let info) = block.kind { return info.source }
             return nil
         }.first
-        let sample = String(result.filter(\.isSpeakable).map(\.text).joined(separator: " ").prefix(3000))
-        // A weak guess on a short summary is worse than none: it picks the voice.
+        let sample = ArticleLanguage.prose(String(result.filter(\.isSpeakable).map(\.text).joined(separator: " ").prefix(3000)))
+        // A weak guess on a short summary is worse than none: it picks the
+        // voice. Links and numbers don't count as words for it.
         let guess = TextNormalizer.wordCount(sample) >= ArticleLanguage.minimumWords ? languageGuesser.guess(sample) : nil
         return ArticleDocument(
             blocks: result, language: guess.flatMap { $0.confidence >= 0.5 ? $0.language : nil }, wordCount: wordCount,

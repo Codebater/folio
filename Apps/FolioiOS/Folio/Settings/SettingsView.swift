@@ -52,6 +52,13 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("voice-library")
                     NavigationLink {
+                        LanguagesSettingsView()
+                    } label: {
+                        SettingsRow(icon: "globe", title: "Languages",
+                                    subtitle: listen.readAloudLanguages.map(StationText.languageName).joined(separator: ", "))
+                    }
+                    .accessibilityIdentifier("languages-settings")
+                    NavigationLink {
                         NaturalVoicesView()
                     } label: {
                         SettingsRow(icon: "waveform", title: "Natural voices", subtitle: "Voices on this iPhone, your own server, Voice Lab")
@@ -65,7 +72,7 @@ struct SettingsView: View {
                     NavigationLink {
                         ListeningStyleView()
                     } label: {
-                        SettingsRow(icon: "waveform", title: "Listening style", subtitle: "Pauses, sentences, languages")
+                        SettingsRow(icon: "waveform", title: "Listening style", subtitle: "Pauses, sentences, highlight")
                     }
                 } header: {
                     Text("Listening")
