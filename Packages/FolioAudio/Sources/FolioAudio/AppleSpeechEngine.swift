@@ -222,7 +222,8 @@ public final class AppleSpeechEngine: NSObject, SpeechEngine {
         let tuning = chosen.flatMap { voiceTuning[$0.identifier] } ?? .neutral
         utterance.rate = Self.appleRate(SpeechRate(rate.multiplier * tuning.rate))
         utterance.pitchMultiplier = Float(tuning.pitch)
-        utterance.postUtteranceDelay = segment.pauseAfter
+        // Pauses shrink with speed like a fast talker's do, never below 150 ms.
+        utterance.postUtteranceDelay = max(0.15, segment.pauseAfter / rate.multiplier)
         utterance.prefersAssistiveTechnologySettings = false
         queued.append(Queued(id: ObjectIdentifier(utterance), utterance: utterance, segment: segment.index, base: offset))
         nextSegmentToQueue += 1

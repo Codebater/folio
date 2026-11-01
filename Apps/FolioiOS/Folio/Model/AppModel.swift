@@ -508,6 +508,7 @@ final class AppModel {
         options.feedLanguage = feedLanguages[feedID]
         options.switchLanguages = narrationLanguages(feedID: feedID, detected: loaded.stored.language)
         options.sourceName = feeds.first { $0.id == feedID }?.title
+        options.authorName = loaded.stored.article.author
         if entitlements.isPremium, let voiceID = listen.preferences.feedVoices[loaded.stored.article.feedID.rawValue],
            let voice = listen.voices.first(where: { $0.id == voiceID })
         {

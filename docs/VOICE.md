@@ -110,6 +110,25 @@ The thresholds follow published language-identification accuracy (Lingua's repor
 - **Unknown language.** When nothing tells the language of an article, it is read in the library's most common language, not the phone's.
 - **Kokoro servers** get `lang_code` from the text's language, so English is never pronounced through Kokoro's Spanish pipeline.
 
+### Timing (how it flows)
+
+Tuned to how professional newsreaders pause: a Google study of news read aloud found a mean of 190 ms between sentences, with 700 ms as the 99.5th percentile. Uniformly long pauses lost a listening test there, so Paperwire errs short.
+
+| Join | Pause | Note |
+|---|---|---|
+| Between sentences (sentence-by-sentence voices) | 0.12 s, plus the 2 × 40 ms each clip keeps | About 0.2 s, the newsreader mean |
+| Between paragraphs | 0.35 s (Listening style can change it) | Under the 0.7 s ceiling |
+| After a heading | 0.6 s | |
+| After the title | 0.3 s, then the byline, then 0.6 s | "Why pages feel quiet. The Margin, by Mara Ellison." |
+| Around quotes | No extra pause | A quote is read like any paragraph; "Quote … End of quote" is optional |
+| Between stories | 2 s | Narrated audio separates sections by 2 to 3 s; the next story is prepared and its first sentences rendered while this one ends |
+
+- **Pauses shrink with speed,** as a fast talker's do: at 1.5× every pause is two thirds as long. They never go below 150 ms, where a join starts to sound like a hiccup. This applies to Apple and natural voices alike.
+- **Closing punctuation.** Titles, headings, list items and spoken cues get a full stop if they have none, so the voice closes them instead of trailing up.
+- **Short sentences ride along.** In sentence-by-sentence mode, a sentence under 24 characters ("It works.") is read together with its neighbour, so it doesn't sound clipped.
+- **Asides.** Dashes and brackets in body text become commas, so voices pause around an aside instead of running clauses together.
+- **No clicks, no stalls.** Natural-voice clips fade in and out over 6 ms and are rendered four segments ahead.
+
 ### How articles are read
 
 - Tables and code are mentioned once ("Table skipped.", "Code skipped.") rather than skipped in silence. Image captions are optional ("Image: …").

@@ -118,6 +118,11 @@ public final class ReadAlongController {
     /// Called with the next story's script once it is prepared, so the app
     /// can render its first sentences ahead.
     public var onNextPrepared: (@MainActor (SpeechScript) -> Void)?
+    /// Silence between one story and the next. Now that the next story is
+    /// ready, they would otherwise run into each other; narrated audio
+    /// separates sections by 2 to 3 seconds. The app sets it.
+    public var pauseBetweenStories: TimeInterval = 0
+    private var storyGap: (any ScheduledWork)?
     private var prepared: (id: ArticleID, script: SpeechScript)?
     private var preparing: ArticleID?
 
@@ -135,6 +140,8 @@ public final class ReadAlongController {
 
     /// Narrates `item`, starting at `position` (tap-to-read) or the top.
     public func play(_ item: ListenItem, from position: SpeechPosition? = nil) async {
+        storyGap?.cancel()
+        storyGap = nil
         loadGeneration += 1
         let generation = loadGeneration
         engine.stop()
@@ -252,6 +259,8 @@ public final class ReadAlongController {
     }
 
     public func stop() {
+        storyGap?.cancel()
+        storyGap = nil
         pausedAt = nil
         loadGeneration += 1
         engine.stop()
@@ -425,7 +434,16 @@ public final class ReadAlongController {
                 next.sleepTimer = nil
                 next.sleepTimerEndsAt = nil
             } else if continuousPlayback, let upcoming = next.upNext.first {
-                followUp = { [weak self] in Task { @MainActor in await self?.play(upcoming) } }
+                followUp = { [weak self] in
+                    guard let self else { return }
+                    guard self.pauseBetweenStories > 0 else {
+                        Task { @MainActor in await self.play(upcoming) }
+                        return
+                    }
+                    self.storyGap = self.scheduler.schedule(after: self.pauseBetweenStories) { [weak self] in
+                        Task { @MainActor in await self?.play(upcoming) }
+                    }
+                }
             }
         case .failed(let message):
             next.lastError = message

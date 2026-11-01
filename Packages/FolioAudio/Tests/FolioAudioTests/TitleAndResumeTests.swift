@@ -12,8 +12,18 @@ struct TitleNarrationTests {
         let script = SpeechScript.build(document: document, title: title,
                                         options: SpeechScriptOptions(language: .english, sourceName: source))
         return script.segments.first { $0.blockID == SpeechScript.titleBlockID }.map {
-            $0.spokenText.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            // Titles are closed with a full stop for the voice; compare the words.
+            var text = $0.spokenText.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            if text.hasSuffix(".") { text.removeLast() }
+            return text
         }
+    }
+
+    @Test func titlesEndWithAFullStopForTheVoice() {
+        let script = SpeechScript.build(document: document, title: "Rising seas", options: SpeechScriptOptions(language: .english))
+        #expect(script.segments.first?.spokenText == "Rising seas.")
+        let asked = SpeechScript.build(document: document, title: "Is this the end?", options: SpeechScriptOptions(language: .english))
+        #expect(asked.segments.first?.spokenText == "Is this the end?")
     }
 
     @Test func siteNamesInTitlesAreNotRead() {
@@ -47,13 +57,19 @@ struct TitleNarrationTests {
         #expect(String(title.utf16Slice(shown.range)) == "Rocket")
     }
 
-    @Test func sourceIsSaidBeforeTheTitleWithABreathAfter() throws {
-        let options = SpeechScriptOptions(language: .english, sourceName: "The Margin", announceSource: true)
+    @Test func headlineFirstThenTheBylineWithABreathAfter() throws {
+        var options = SpeechScriptOptions(language: .english, sourceName: "The Margin", announceSource: true)
         let script = SpeechScript.build(document: document, title: "Why pages feel quiet", options: options)
-        #expect(script.segments.map(\.blockID).prefix(3) == ["announcement-source", "title", "b0"])
-        #expect(script.segments[0].spokenText == "The Margin" && script.segments[0].pauseAfter == 0.3)
-        #expect(script.segments[1].pauseAfter == 0.9)  // longer than a heading's 0.6
-        #expect(script.segments[0].isAnnouncement)  // nothing on the page is highlighted for it
+        #expect(script.segments.map(\.blockID).prefix(3) == ["title", "announcement-source", "b0"])
+        #expect(script.segments[0].pauseAfter == 0.3)
+        #expect(script.segments[1].spokenText == "The Margin." && script.segments[1].pauseAfter == 0.6)  // newsreaders stay under 0.7 s
+        #expect(script.segments[1].isAnnouncement)  // nothing on the page is highlighted for it
+        options.authorName = "By Mara Ellison"
+        #expect(SpeechScript.build(document: document, title: "Why pages feel quiet", options: options)
+            .segments[1].spokenText == "The Margin, by Mara Ellison.")
+        options.authorName = "editor@margin.example"  // not a name: left out
+        #expect(SpeechScript.build(document: document, title: "Why pages feel quiet", options: options)
+            .segments[1].spokenText == "The Margin.")
         // Off, or without a title (bulletins introduce stories themselves): no source line.
         #expect(SpeechScript.build(document: document, title: "Why pages feel quiet",
                                    options: SpeechScriptOptions(language: .english, sourceName: "The Margin"))

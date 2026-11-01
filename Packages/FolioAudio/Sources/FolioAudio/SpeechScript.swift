@@ -94,17 +94,20 @@ public struct SpeechScriptOptions: Sendable {
     /// the title when `announceSource` is on ("The Margin. Why …").
     public var sourceName: String?
     public var announceSource: Bool
-    /// Silence after the title, longer than after a heading, like a breath
-    /// before the story starts.
+    /// Silence after the title (or after the byline that follows it), like a
+    /// breath before the story starts. Newsreaders stay under 0.7 s.
     public var titlePause: Double
+    /// The article's author, read in the byline after the title ("The
+    /// Margin, by Mara Ellison.") when the source is announced.
+    public var authorName: String?
 
     public init(granularity: Granularity = .paragraph, includeTitle: Bool = true, paragraphPause: Double = 0.35,
                 headingPause: Double = 0.6, sentencePause: Double = 0.12, language: LanguageCode? = nil,
                 pronunciation: PronunciationRules = PronunciationRules(), cleanup: SpeechCleanup = SpeechCleanup(),
                 switchLanguagePerParagraph: Bool = true, preferredVoice: PreferredVoice? = nil,
-                sourceName: String? = nil, announceSource: Bool = false, titlePause: Double = 0.9,
+                sourceName: String? = nil, announceSource: Bool = false, titlePause: Double = 0.6,
                 detectedLanguage: LanguageCode? = nil, feedLanguage: LanguageCode? = nil, switchLanguages: Set<String>? = nil,
-                defaultLanguage: LanguageCode? = nil) {
+                defaultLanguage: LanguageCode? = nil, authorName: String? = nil) {
         self.granularity = granularity
         self.includeTitle = includeTitle
         self.paragraphPause = paragraphPause
@@ -122,6 +125,7 @@ public struct SpeechScriptOptions: Sendable {
         self.feedLanguage = feedLanguage
         self.switchLanguages = switchLanguages
         self.defaultLanguage = defaultLanguage
+        self.authorName = authorName
     }
 }
 
@@ -147,8 +151,60 @@ public struct SpeechScript: Sendable {
         return family.contains(a) && family.contains(b)
     }
 
-    /// Silence around a quote, longer than between paragraphs.
-    static let quotePause = 0.7
+    /// Sentences shorter than this (UTF-16 units) are read together with the
+    /// next one in sentence-by-sentence mode.
+    static let shortSentence = 24
+
+    static func mergedShortSentences(_ sentences: [Range<Int>]) -> [Range<Int>] {
+        var groups: [Range<Int>] = []
+        var current: Range<Int>?
+        for sentence in sentences {
+            if let open = current {
+                if open.count < shortSentence {
+                    current = open.lowerBound..<sentence.upperBound
+                } else {
+                    groups.append(open)
+                    current = sentence
+                }
+            } else {
+                current = sentence
+            }
+        }
+        if let open = current {
+            if open.count < shortSentence, let last = groups.popLast() {
+                groups.append(last.lowerBound..<open.upperBound)
+            } else {
+                groups.append(open)
+            }
+        }
+        return groups
+    }
+
+    /// True when the text doesn't end in sentence punctuation (looking past
+    /// closing quotes and brackets).
+    static func needsFullStop(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let last = trimmed.last(where: { !"\"'”’»)]".contains($0) }) else { return false }
+        return !".!?…:;".contains(last)
+    }
+
+    /// "The Margin." or "The Margin, by Mara Ellison." in the article's
+    /// language. Bylines that are an email, a URL or the source again are left out.
+    static func byline(source: String, author: String?, language: LanguageCode?) -> String {
+        var name = TextNormalizer.normalize(author ?? "")
+        for prefix in ["By ", "by ", "Von ", "von ", "Por ", "por "] where name.hasPrefix(prefix) { name = String(name.dropFirst(prefix.count)) }
+        let usable = !name.isEmpty && name.count <= 60 && !name.contains("@") && !name.contains("://")
+            && name.caseInsensitiveCompare(source) != .orderedSame
+        guard usable else { return source }
+        let by: String
+        switch language?.base {
+        case "de": by = "von"
+        case "es": by = "por"
+        case "cs", "sk": by = "autor"
+        default: by = "by"
+        }
+        return "\(source), \(by) \(name)"
+    }
 
     public let articleID: ArticleID?
     public let language: LanguageCode?
@@ -189,7 +245,8 @@ public struct SpeechScript: Sendable {
 
         /// `blockEdits` are in block coordinates; they are clipped to the range.
         func add(blockID: String, text: String, range: Range<Int>, pause: Double, heading: Bool, language: LanguageCode?,
-                 blockEdits: [PronunciationEdit] = [], voiceID: String? = nil, sentences: [Range<Int>]? = nil) {
+                 blockEdits: [PronunciationEdit] = [], voiceID: String? = nil, sentences: [Range<Int>]? = nil,
+                 closeSentence: Bool = false) {
             let slice = String(text.utf16Slice(range))
             let local = blockEdits
                 .filter { $0.range.lowerBound >= range.lowerBound && $0.range.upperBound <= range.upperBound }
@@ -197,8 +254,14 @@ public struct SpeechScript: Sendable {
                                          replacement: $0.replacement) }
             let edits = PronunciationRules.resolve(
                 options.pronunciation.edits(for: slice, language: language) + options.cleanup.edits(for: slice, phrasing: !heading) + local)
-            let (spoken, map) = PronunciationRules.apply(edits, to: slice)
+            var (spoken, map) = PronunciationRules.apply(edits, to: slice)
             guard spoken.contains(where: { $0.isLetter || $0.isNumber }) else { return }
+            // A title, heading or list item without a full stop is read with a
+            // rising, unfinished tone; the stop lets the voice close it.
+            if closeSentence, Self.needsFullStop(spoken) {
+                spoken += "."
+                map.appendReplacement(displayLength: 0, spokenLength: 1)
+            }
             let voice = voiceID ?? options.preferredVoice.flatMap { $0.languageBase == language?.base ? $0.id : nil }
             segments.append(SpeechSegment(index: segments.count, blockID: blockID, displayRange: range, spokenText: spoken,
                                           map: map, language: language, pauseAfter: pause, isHeading: heading, voiceID: voice,
@@ -210,14 +273,10 @@ public struct SpeechScript: Sendable {
             let id = announcementPrefix + "cue-" + blockID + "-" + cue.rawValue
             order.append(id)
             let text = TextNormalizer.normalize(cue.text(language: language) + (detail.isEmpty ? "" : " " + detail))
-            add(blockID: id, text: text, range: 0..<text.utf16Length, pause: options.paragraphPause, heading: false, language: language)
+            add(blockID: id, text: text, range: 0..<text.utf16Length, pause: options.paragraphPause, heading: false, language: language,
+                closeSentence: true)
         }
 
-        /// A longer breath before something set apart, such as a quote.
-        func breathe(_ seconds: Double) {
-            guard let last = segments.indices.last else { return }
-            segments[last].pauseAfter = max(segments[last].pauseAfter, seconds)
-        }
 
         func blockLanguage(_ text: String) -> LanguageCode? {
             guard options.language == nil, options.switchLanguagePerParagraph, let languageGuesser,
@@ -230,7 +289,8 @@ public struct SpeechScript: Sendable {
             return guess.language
         }
 
-        func addBlock(id: String, text: String, isHeading: Bool, spans: [InlineSpan] = [], ordinal: Int? = nil) {
+        func addBlock(id: String, text: String, isHeading: Bool, spans: [InlineSpan] = [], ordinal: Int? = nil,
+                      isListItem: Bool = false) {
             let blockPause = isHeading ? options.headingPause : options.paragraphPause
             let blockLang = isHeading ? language : blockLanguage(text)
             let superscripts = spans.filter { $0.style == .superscript }.map { InlineSpanInfo(range: $0.start..<$0.end) }
@@ -238,14 +298,17 @@ public struct SpeechScript: Sendable {
             // Numbered list items say their number, as the page shows it.
             if let ordinal { blockEdits.insert(PronunciationEdit(range: 0..<0, replacement: "\(ordinal). "), at: 0) }
             let sentences = isHeading ? [0..<text.utf16Length] : segmenter.sentences(in: text, language: blockLang)
+            let close = isHeading || isListItem
             switch options.granularity {
             case .paragraph:
                 add(blockID: id, text: text, range: 0..<text.utf16Length, pause: blockPause, heading: isHeading,
-                    language: blockLang, blockEdits: blockEdits, sentences: sentences)
+                    language: blockLang, blockEdits: blockEdits, sentences: sentences, closeSentence: close)
             case .sentence:
-                for (i, range) in sentences.enumerated() {
-                    add(blockID: id, text: text, range: range, pause: i == sentences.count - 1 ? blockPause : options.sentencePause,
-                        heading: isHeading, language: blockLang, blockEdits: blockEdits)
+                // A one- or two-word sentence on its own sounds clipped; it rides with its neighbour.
+                let groups = Self.mergedShortSentences(sentences)
+                for (i, range) in groups.enumerated() {
+                    add(blockID: id, text: text, range: range, pause: i == groups.count - 1 ? blockPause : options.sentencePause,
+                        heading: isHeading, language: blockLang, blockEdits: blockEdits, closeSentence: close)
                 }
             }
         }
@@ -255,20 +318,26 @@ public struct SpeechScript: Sendable {
             order.append(id)
             let text = TextNormalizer.normalize(announcement.text)
             add(blockID: id, text: text, range: 0..<text.utf16Length, pause: options.headingPause, heading: false,
-                language: announcement.language ?? language)
+                language: announcement.language ?? language, closeSentence: true)
         }
 
         for (i, announcement) in announcementsBefore.enumerated() { addAnnouncement(announcement, number: i) }
         if options.includeTitle, let title, !title.isEmpty {
-            if options.announceSource, let source = options.sourceName.map(TextNormalizer.normalize), !source.isEmpty {
-                let id = announcementPrefix + "source"
-                order.append(id)
-                add(blockID: id, text: source, range: 0..<source.utf16Length, pause: 0.3, heading: false, language: language)
-            }
+            // The headline first, then who wrote it, as newsreaders do:
+            // "Why pages feel quiet. The Margin, by Mara Ellison."
+            let source = options.announceSource ? options.sourceName.map(TextNormalizer.normalize).flatMap { $0.isEmpty ? nil : $0 } : nil
             order.append(titleBlockID)
             let text = TextNormalizer.normalize(title)
-            add(blockID: titleBlockID, text: text, range: 0..<text.utf16Length, pause: options.titlePause, heading: true,
-                language: language, blockEdits: TitleCleaner.edits(for: text, source: options.sourceName))
+            add(blockID: titleBlockID, text: text, range: 0..<text.utf16Length, pause: source == nil ? options.titlePause : 0.3,
+                heading: true, language: language, blockEdits: TitleCleaner.edits(for: text, source: options.sourceName),
+                closeSentence: true)
+            if let source {
+                let id = announcementPrefix + "source"
+                order.append(id)
+                let byline = Self.byline(source: source, author: options.authorName, language: language)
+                add(blockID: id, text: byline, range: 0..<byline.utf16Length, pause: options.titlePause, heading: false,
+                    language: language, closeSentence: true)
+            }
         } else {
             order.append(titleBlockID)
         }
@@ -278,7 +347,6 @@ public struct SpeechScript: Sendable {
             guard inQuote else { return }
             inQuote = false
             if options.cleanup.announceQuotes { addCue(.endQuote, after: blockID) }
-            breathe(quotePause)
         }
         var previousID = titleBlockID
         for block in document.blocks {
@@ -306,14 +374,14 @@ public struct SpeechScript: Sendable {
             lastSkipped = nil
             if isQuote && !inQuote {
                 inQuote = true
-                breathe(quotePause)
                 if options.cleanup.announceQuotes { addCue(.quote, after: block.id) }
             }
             switch block.kind {
             case .heading:
                 addBlock(id: block.id, text: block.text, isHeading: true, spans: block.spans)
-            case .listItem(let ordered, let ordinal, _) where ordered:
-                addBlock(id: block.id, text: block.text, isHeading: false, spans: block.spans, ordinal: ordinal)
+            case .listItem(let ordered, let ordinal, _):
+                addBlock(id: block.id, text: block.text, isHeading: false, spans: block.spans, ordinal: ordered ? ordinal : nil,
+                         isListItem: true)
             default:
                 addBlock(id: block.id, text: block.text, isHeading: false, spans: block.spans)
             }

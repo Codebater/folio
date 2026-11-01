@@ -22,8 +22,8 @@ struct SignpostTests {
         let script = SpeechScript.build(document: doc, title: nil, options: SpeechScriptOptions(includeTitle: false, language: .english))
         #expect(spoken(script) == ["Here are the numbers.", "Table skipped.", "Code skipped.", "As one engineer put it:",
                                    "It just works.", "That was all."])
-        // A breath before and after the quote; cues are never highlighted.
-        #expect(script.segments[3].pauseAfter >= 0.7 && script.segments[4].pauseAfter >= 0.7)
+        // A quote is a paragraph like any other: no long pause around it. Cues are never highlighted.
+        #expect(script.segments[3].pauseAfter == 0.35 && script.segments[4].pauseAfter == 0.35)
         #expect(script.segments[1].isAnnouncement && script.segments[2].isAnnouncement)
 
         var cleanup = SpeechCleanup(mentionSkipped: false, announceQuotes: true)
@@ -42,7 +42,7 @@ struct SignpostTests {
         let script = SpeechScript.build(document: doc, title: nil,
                                         options: SpeechScriptOptions(includeTitle: false, language: .english,
                                                                      cleanup: SpeechCleanup(captions: true)))
-        #expect(spoken(script) == ["Image: The launch at dawn.", "1. Open the app", "2. Pick a voice"])
+        #expect(spoken(script) == ["Image: The launch at dawn.", "1. Open the app.", "2. Pick a voice."])
         // The number is spoken, not shown: highlights still land on the item's words.
         let item = script.segments[1]
         let open = item.spokenText.utf16Offset(of: item.spokenText.range(of: "Open")!.lowerBound)
@@ -58,7 +58,8 @@ struct SignpostTests {
         let second = paragraph.segments[0].sentences[1]
         #expect(paragraph.sentence(segment: 0, word: second.lowerBound..<(second.lowerBound + 6)) == second)
         // Sentence by sentence, each segment is its own sentence.
-        let sentences = SpeechScript.build(document: doc, title: nil,
+        let longer = ArticleParser.parse(html: "<p>The first sentence is long enough to stand. The second one is long as well.</p>", title: nil)
+        let sentences = SpeechScript.build(document: longer, title: nil,
                                            options: SpeechScriptOptions(granularity: .sentence, includeTitle: false, language: .english))
         #expect(sentences.sentence(segment: 1, word: nil) == sentences.segments[1].displayRange)
     }

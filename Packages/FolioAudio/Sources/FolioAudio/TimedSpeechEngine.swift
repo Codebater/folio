@@ -188,7 +188,9 @@ public final class TimedSpeechEngine: SpeechEngine {
                 hub.emit(.segmentFinished(segment))
                 rendered[segment] = nil
                 current = nil
-                phase = .gap(until: clock() + script.segments[segment].pauseAfter / rate.multiplier)
+                // Each clip keeps 40 ms of its own silence at either end, so a
+                // 70 ms floor keeps every join at 150 ms or more at any speed.
+                phase = .gap(until: clock() + max(0.07, script.segments[segment].pauseAfter / rate.multiplier))
                 tick()
             }
         case .gap(let until):

@@ -73,7 +73,12 @@ public enum TitleCleaner {
             if let current = open {
                 if character == current.closer {
                     if tags.contains(fold(inner)) {
-                        edits.append(PronunciationEdit(range: current.offset..<(offset + width), replacement: ""))
+                        // A tag at the end takes the space before it, so the
+                        // title closes on its last word ("barge.", not "barge .").
+                        let units = Array(title.utf16)
+                        var start = current.offset
+                        if offset + width >= units.count { while start > 0 && units[start - 1] == 0x20 { start -= 1 } }
+                        edits.append(PronunciationEdit(range: start..<(offset + width), replacement: ""))
                     }
                     open = nil
                 } else {

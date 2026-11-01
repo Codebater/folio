@@ -210,6 +210,7 @@ final class ListenModel {
         }
         controller.continuousPlayback = preferences.continuousPlayback
         controller.onNextPrepared = { [weak self] script in self?.renderAhead(script) }
+        controller.pauseBetweenStories = 2
         controller.setRate(SpeechRate(preferences.rate))
         engine.preferredVoiceIDs = preferences.voiceByLanguage
         controller.onChange = { [weak self] state in self?.stateChanged(state) }

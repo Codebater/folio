@@ -154,11 +154,14 @@ struct SpeechScriptTests {
 
     @Test func sentenceModeSplitsBlocksAndKeepsBlockPauseAtTheEnd() {
         let options = SpeechScriptOptions(granularity: .sentence, includeTitle: false, language: .english)
-        let script = SpeechScript.build(document: document, title: nil, options: options)
-        let b3 = script.segments.filter { $0.blockID == "b3" }
-        #expect(b3.map(\.spokenText) == ["Emoji owl.", "Second sentence here."])  // emoji aren't read
-        #expect(b3[1].displayRange.lowerBound > 0)
-        #expect(b3[0].pauseAfter == options.sentencePause && b3[1].pauseAfter == options.paragraphPause)
+        let doc = ArticleParser.parse(html: "<p>The first sentence is long enough to stand. The second one is long as well.</p>", title: nil)
+        let script = SpeechScript.build(document: doc, title: nil, options: options)
+        #expect(script.segments.map(\.spokenText) == ["The first sentence is long enough to stand.", "The second one is long as well."])
+        #expect(script.segments[1].displayRange.lowerBound > 0)
+        #expect(script.segments[0].pauseAfter == options.sentencePause && script.segments[1].pauseAfter == options.paragraphPause)
+        // A very short sentence rides with its neighbour, and emoji aren't read.
+        let b3 = SpeechScript.build(document: document, title: nil, options: options).segments.filter { $0.blockID == "b3" }
+        #expect(b3.map(\.spokenText) == ["Emoji owl. Second sentence here."])
     }
 
     @Test func locatesTapPositionsAtWordStarts() throws {
