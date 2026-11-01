@@ -442,10 +442,11 @@ final class ListenModel {
         return (readAloudLanguages + (app?.libraryLanguages ?? []) + device).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
     }
 
-    /// The voice that reads a language: the chosen one, Ivy, or Apple's pick.
+    /// The voice that reads a language, the same one narration picks: the
+    /// chosen one, Ivy, or the engine's choice.
     func narratingVoice(for language: String) -> SpeechVoice? {
-        if let id = chosenVoiceID(for: language), let voice = voices.first(where: { $0.id == id }) { return voice }
-        return defaultVoice(for: language)
+        if let id = chosenVoiceID(for: language), isUsable(id), let voice = voices.first(where: { $0.id == id }) { return voice }
+        return engine.resolvedVoice(for: LanguageCode(language))
     }
 
     func voiceSections(filter: VoiceFilter) -> [VoiceSection] {
