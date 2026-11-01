@@ -459,14 +459,14 @@ private struct UpNextSection: View {
     private let visibleCount = 6
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("Up Next")
-                    .font(.system(.title2, design: .serif, weight: .bold))
+                    .font(.system(.title3, design: .serif, weight: .bold))
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("up-next-header")
                 if !listen.upNext.isEmpty {
-                    Text("\(listen.upNext.count)").font(.title3.monospacedDigit()).foregroundStyle(.secondary)
+                    Text("\(listen.upNext.count)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
                     Spacer()
                     Button("Edit") { showQueue = true }
                         .font(.subheadline.weight(.semibold))
@@ -479,7 +479,7 @@ private struct UpNextSection: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(listen.upNext.prefix(visibleCount).enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { ThemeDivider().padding(.leading, 60) }
+                        if index > 0 { ThemeDivider().padding(.leading, 52) }
                         UpNextRow(item: item)
                     }
                 }
@@ -506,8 +506,8 @@ private struct UpNextRow: View {
         } label: {
             HStack(spacing: 12) {
                 ThemeArtwork(key: item.feedTitle, initial: item.feedTitle)
-                    .frame(width: 46, height: 46)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
                         .font(.system(.subheadline, design: .serif, weight: .semibold))
@@ -516,7 +516,7 @@ private struct UpNextRow: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 9)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -570,121 +570,237 @@ private struct QueueView: View {
     }
 }
 
-/// The player card. Only its small parts (progress, play button, story
-/// count, error) read the per-word state; the rest stays put while words
-/// go by, which keeps scrolling and tapping smooth during narration.
+/// The player card: the headline, a line through the article, the
+/// transport and a row of small controls. Only its small parts (line, play
+/// button, sleep chip, story count, error) read the per-word state; the
+/// rest stays put while words go by, which keeps scrolling and tapping
+/// smooth during narration.
 private struct NowPlayingCard: View {
     let item: ListenItem
     @Binding var showPremium: Bool
     @Environment(\.folioTheme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 ThemeArtwork(key: item.feedTitle, initial: item.feedTitle)
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("NOW PLAYING").font(.caption2.weight(.bold)).tracking(1.2).foregroundStyle(Color(theme.accent))
-                    Text(item.feedTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
-                    StoryPositionLabel()
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    NowPlayingKicker(feed: item.feedTitle)
+                    Text(item.title)
+                        .font(.system(.title3, design: .serif, weight: .bold))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("now-playing-title")
                 }
                 Spacer(minLength: 0)
                 CloseNarrationButton()
             }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(item.title).font(.system(.title2, design: .serif, weight: .bold)).accessibilityIdentifier("now-playing-title")
-                NavigationLink(value: item.id) {
-                    Label("Read along", systemImage: "text.viewfinder").font(.subheadline.weight(.semibold))
-                }
-                .foregroundStyle(Color(theme.accent))
-            }
-
-            PlaybackProgress()
-            TransportControls()
-
-            HStack {
-                RateMenu(showPremium: $showPremium)
-                Spacer()
+            ArticleLine()
+            TransportControls(showPremium: $showPremium)
+            HStack(spacing: 8) {
                 VoiceChip()
-                Spacer()
                 SleepMenu()
+                Spacer(minLength: 0)
+                NavigationLink(value: item.id) {
+                    ChipLabel(title: "Read along", systemImage: "text.viewfinder")
+                }
+                .buttonStyle(.plain)
+                .layoutPriority(1)
             }
-            .font(.subheadline)
-            .foregroundStyle(Color(theme.accent))
-
             PlaybackErrorLabel()
         }
-        .padding(20)
-        .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(16)
+        .background(Color(theme.surface), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
-private struct StoryPositionLabel: View {
-    @Environment(ListenModel.self) private var listen
-
-    var body: some View {
-        if let position = listen.bulletinPosition {
-            Text("Story \(position.index) of \(position.count)").font(.caption).foregroundStyle(.secondary)
-        }
-    }
-}
-
-private struct PlaybackProgress: View {
+/// "NACHTSCHICHT · 2 OF 6": the source, and the story's place in a station.
+private struct NowPlayingKicker: View {
+    let feed: String
     @Environment(ListenModel.self) private var listen
     @Environment(\.folioTheme) private var theme
 
-    private var stage: String {
-        if listen.state.status == .loading { return "Preparing…" }
-        if listen.isAnnouncing { return "Introduction" }
-        let count = max(listen.state.segmentCount, 1)
-        return "Paragraph \(min(listen.state.segmentIndex + 1, count)) of \(count)"
+    var body: some View {
+        let position = listen.bulletinPosition
+        Text((position.map { "\(feed) · \($0.index) of \($0.count)" } ?? feed).uppercased())
+            .font(.caption2.weight(.bold)).tracking(1.1)
+            .foregroundStyle(Color(theme.accent))
+            .lineLimit(1)
+            .accessibilityLabel(position.map { "\(feed), story \($0.index) of \($0.count)" } ?? feed)
     }
+}
+
+/// A line through the article with a mark where each paragraph starts,
+/// taller at headings: the article's shape, and how far in you are. Drag
+/// along it to jump to a paragraph.
+private struct ArticleLine: View {
+    @Environment(ListenModel.self) private var listen
+    @Environment(\.folioTheme) private var theme
+    /// The paragraph under the finger.
+    @State private var target: SpeechMark?
+    /// The paragraph just jumped to, shown until narration gets there.
+    @State private var landing: SpeechMark?
+
+    /// Past this many, marks would run together: the line goes plain.
+    private let maximumMarks = 90
 
     var body: some View {
-        VStack(spacing: 6) {
-            ProgressView(value: listen.state.progress).tint(Color(theme.accent))
+        let marks = listen.marks
+        let position = shownPosition
+        let knob: CGFloat = target == nil ? 9 : 15
+        VStack(spacing: 5) {
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                ZStack(alignment: .leading) {
+                    Canvas { context, size in draw(marks, at: position, in: &context, size: size) }
+                    Circle()
+                        .fill(Color(theme.accent))
+                        .frame(width: knob, height: knob)
+                        .offset(x: width * position - knob / 2)
+                }
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard width > 0 else { return }
+                        target = marks.mark(at: value.location.x / width)
+                    }
+                    .onEnded { _ in
+                        if let target {
+                            landing = target
+                            listen.seek(to: target)
+                        }
+                        target = nil
+                    })
+            }
+            .frame(height: 18)
+            .animation(.snappy(duration: 0.2), value: target == nil)
+            .sensoryFeedback(.selection, trigger: target?.segment) { old, new in old != nil && new != nil }
             HStack {
                 Text(stage)
                 Spacer()
-                if let ends = listen.state.sleepTimerEndsAt {
-                    Label(ends.formatted(date: .omitted, time: .shortened), systemImage: "moon.zzz")
-                } else if listen.state.sleepTimer == .endOfArticle {
-                    Label("End of article", systemImage: "moon.zzz")
-                }
+                Text(timeLeft)
             }
             .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)
         }
+        .onChange(of: listen.state.segmentIndex) { _, index in
+            if index == landing?.segment { landing = nil }
+        }
+        .task(id: landing?.segment) {
+            // A jump that never arrives (narration stopped) mustn't pin the line.
+            guard landing != nil else { return }
+            try? await Task.sleep(for: .seconds(2))
+            landing = nil
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Position in the article")
+        .accessibilityValue([stage, timeLeft].filter { !$0.isEmpty }.joined(separator: ", "))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: listen.skip(by: 1)
+            case .decrement: listen.skip(by: -1)
+            @unknown default: break
+            }
+        }
+    }
+
+    private var shownPosition: Double {
+        if let target { return target.fraction }
+        if let landing, landing.segment != listen.state.segmentIndex { return landing.fraction }
+        return min(max(listen.state.progress, 0), 1)
+    }
+
+    private var stage: String {
+        if let target { return paragraphLabel(target.segment) }
+        if listen.state.status == .loading { return "Preparing…" }
+        if listen.isAnnouncing { return "Introduction" }
+        return paragraphLabel(listen.state.segmentIndex)
+    }
+
+    private func paragraphLabel(_ segment: Int) -> String {
+        if let paragraph = listen.marks.paragraph(containing: segment) {
+            return "Paragraph \(paragraph.index) of \(paragraph.count)"
+        }
+        return listen.marks.first?.isTitle == true ? "Headline" : ""
+    }
+
+    /// An estimate (characters at the current speed), and said so.
+    private var timeLeft: String {
+        guard listen.state.status != .loading, let seconds = listen.remainingTime(fromSegment: target?.segment) else { return "" }
+        let minutes = Int((seconds / 60).rounded())
+        return minutes < 1 ? "Under a minute left" : "About \(minutes) min left"
+    }
+
+    private func draw(_ marks: [SpeechMark], at position: Double, in context: inout GraphicsContext, size: CGSize) {
+        let accent = Color(theme.accent)
+        let rule = Color(theme.text).opacity(0.16)
+        let middle = size.height / 2
+        if marks.count > 1, marks.count <= maximumMarks {
+            for mark in marks where mark.fraction > 0.004 {  // none at the very start
+                let height: CGFloat = mark.isHeading ? 14 : 8
+                let x = (size.width * mark.fraction).rounded() - 0.5
+                context.fill(Path(CGRect(x: x, y: middle - height / 2, width: 1, height: height)),
+                             with: .color(mark.fraction <= position ? accent.opacity(0.6) : Color(theme.text).opacity(0.26)))
+            }
+        }
+        context.fill(Path(roundedRect: CGRect(x: 0, y: middle - 1, width: size.width, height: 2), cornerRadius: 1), with: .color(rule))
+        context.fill(Path(roundedRect: CGRect(x: 0, y: middle - 1.5, width: size.width * position, height: 3), cornerRadius: 1.5),
+                     with: .color(accent))
     }
 }
 
+/// Speed, a paragraph back, play, a paragraph on, the next story. Play
+/// stays in the middle whatever is queued.
 private struct TransportControls: View {
+    @Binding var showPremium: Bool
+    @Environment(ListenModel.self) private var listen
+    @Environment(\.folioTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            RateMenu(showPremium: $showPremium).frame(maxWidth: .infinity)
+            SkipButton(direction: -1).frame(maxWidth: .infinity)
+            PlayPauseButton().frame(maxWidth: .infinity)
+            SkipButton(direction: 1).frame(maxWidth: .infinity)
+            Button { Task { await listen.nextStory() } } label: {
+                Image(systemName: "forward.fill")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(listen.upNext.isEmpty)
+            .opacity(listen.upNext.isEmpty ? 0.3 : 1)
+            .accessibilityLabel("Next story")
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color(theme.accent))
+    }
+}
+
+private struct PlayPauseButton: View {
     @Environment(ListenModel.self) private var listen
     @Environment(\.folioTheme) private var theme
 
     var body: some View {
         let playing = listen.state.status == .playing
-        HStack {
-            Spacer()
-            SkipButton(direction: -1)
-            Spacer()
-            Button { listen.togglePlayPause() } label: {
-                Image(systemName: playing ? "pause.circle.fill" : "play.circle.fill").font(.system(size: 64))
-            }
-            .accessibilityLabel(playing ? "Pause" : "Play")
-            .accessibilityIdentifier("listen-play-pause")
-            Spacer()
-            SkipButton(direction: 1)
-            Spacer()
-            if !listen.upNext.isEmpty {
-                Button { Task { await listen.nextStory() } } label: { Image(systemName: "forward.fill").font(.title3) }
-                    .accessibilityLabel("Next story")
-            }
+        Button { listen.togglePlayPause() } label: {
+            Image(systemName: playing ? "pause.fill" : "play.fill")
+                .font(.system(size: 21, weight: .bold))
+                .contentTransition(.symbolEffect(.replace))
+                .offset(x: playing ? 0 : 2)
+                // Light accents (dark themes) need a dark glyph.
+                .foregroundStyle(theme.isDark ? Color(theme.background) : Color.white)
+                .frame(width: 54, height: 54)
+                .background(Circle().fill(Color(theme.accent)))
+                .shadow(color: Color(theme.accent).opacity(0.3), radius: 8, y: 3)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color(theme.accent))
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel(playing ? "Pause" : "Play")
+        .accessibilityIdentifier("listen-play-pause")
     }
 }
 
@@ -698,7 +814,7 @@ private struct SkipButton: View {
 
     var body: some View {
         Image(systemName: direction < 0 ? "backward.end.fill" : "forward.end.fill")
-            .font(.title2)
+            .font(.title3)
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
             .onTapGesture { listen.skip(by: direction) }
@@ -725,14 +841,38 @@ private struct CloseNarrationButton: View {
             withAnimation(.snappy) { listen.stop() }
         } label: {
             Image(systemName: "xmark")
-                .font(.footnote.weight(.bold))
+                .font(.caption.weight(.bold))
                 .foregroundStyle(.secondary)
-                .frame(width: 30, height: 30)
+                .frame(width: 28, height: 28)
                 .background(.quaternary, in: Circle())
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(.top, -4)
+        .padding(.trailing, -4)
         .accessibilityLabel("Stop and close")
         .accessibilityIdentifier("close-narration")
+    }
+}
+
+/// The small rounded controls under the player; icon only without a title.
+private struct ChipLabel: View {
+    var title: String?
+    let systemImage: String
+    @Environment(\.folioTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: systemImage)
+            if let title { Text(title).lineLimit(1) }
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(Color(theme.accent))
+        .padding(.horizontal, title == nil ? 0 : 11)
+        .frame(minWidth: 30, minHeight: 30)
+        .background(Color(theme.accent).opacity(0.12), in: Capsule())
+        .contentShape(Capsule())
     }
 }
 
@@ -740,6 +880,7 @@ private struct RateMenu: View {
     @Binding var showPremium: Bool
     @Environment(ListenModel.self) private var listen
     @Environment(EntitlementStore.self) private var entitlements
+    @Environment(\.folioTheme) private var theme
 
     var body: some View {
         let current = SpeechRate(listen.preferences.rate)
@@ -752,8 +893,15 @@ private struct RateMenu: View {
                 }
             }
         } label: {
-            Label(current.label, systemImage: "gauge.with.dots.needle.50percent")
+            Text(current.label)
+                .font(.subheadline.weight(.bold).monospacedDigit())
+                .foregroundStyle(Color(theme.accent))
+                .padding(.horizontal, 9).padding(.vertical, 5)
+                .background(Color(theme.accent).opacity(0.12), in: Capsule())
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
+        .accessibilityLabel("Speed \(current.label)")
     }
 }
 
@@ -778,12 +926,13 @@ private struct VoiceChip: View {
                 }
             }
         } label: {
-            Label(active?.name ?? "Voice", systemImage: active?.quality == .neural ? "waveform" : "person.wave.2")
+            ChipLabel(title: active?.name ?? "Voice", systemImage: active?.quality == .neural ? "waveform" : "person.wave.2")
         }
         .accessibilityLabel("Voice: \(active?.name ?? "automatic")")
     }
 }
 
+/// A moon while off; the time it stops while on.
 private struct SleepMenu: View {
     @Environment(ListenModel.self) private var listen
 
@@ -795,8 +944,22 @@ private struct SleepMenu: View {
             }
             Button("End of article") { listen.setSleepTimer(.endOfArticle) }
         } label: {
-            Label("Sleep", systemImage: "moon.zzz")
+            if let ends = listen.state.sleepTimerEndsAt {
+                ChipLabel(title: ends.formatted(date: .omitted, time: .shortened), systemImage: "moon.zzz.fill")
+            } else if listen.state.sleepTimer == .endOfArticle {
+                ChipLabel(title: "End of article", systemImage: "moon.zzz.fill")
+            } else {
+                ChipLabel(systemImage: "moon.zzz")
+            }
         }
+        .fixedSize()
+        .accessibilityLabel(sleepDescription)
+    }
+
+    private var sleepDescription: String {
+        if let ends = listen.state.sleepTimerEndsAt { return "Sleep timer, stops at \(ends.formatted(date: .omitted, time: .shortened))" }
+        if listen.state.sleepTimer == .endOfArticle { return "Sleep timer, stops at the end of the article" }
+        return "Sleep timer, off"
     }
 }
 

@@ -118,6 +118,10 @@ final class ListenModel {
     private(set) var voices: [SpeechVoice] = []
     /// The bulletin whose stories are in the queue, if any.
     private(set) var bulletin: Bulletin?
+    /// Where each block of the current article starts, for the player's
+    /// line. Updated when the script changes, not per word.
+    private(set) var marks: [SpeechMark] = []
+    @ObservationIgnored private var marksKey: String?
     var preferences = ListenPreferences() {
         didSet {
             Preferences.save(preferences, key: .listenPreferences)
@@ -277,6 +281,19 @@ final class ListenModel {
     }
 
     var isAnnouncing: Bool { state.blockID?.hasPrefix(SpeechScript.announcementPrefix) == true }
+
+    /// About how long is left of this article at the current speed, from
+    /// `segment` (the one being read when nil).
+    func remainingTime(fromSegment segment: Int? = nil) -> TimeInterval? {
+        guard state.item != nil, let script = controller?.currentScript else { return nil }
+        return script.estimatedDuration(rate: state.rate.multiplier, fromSegment: segment ?? state.segmentIndex)
+    }
+
+    /// Jumps to the start of a block, keeping play or pause as it was.
+    func seek(to mark: SpeechMark) {
+        guard let script = controller?.currentScript, mark.segment < script.segments.count else { return }
+        start(at: script.position(segment: mark.segment, spokenOffset: 0))
+    }
 
     // MARK: Transport
 
@@ -805,8 +822,17 @@ final class ListenModel {
         if new.status == .finished && new.upNext.isEmpty { bulletin = nil }
         save(force: queueChanged)
         guard let item = new.item, let script = controller.currentScript else {
-            if new.item == nil { session.clearNowPlaying() }
+            if new.item == nil {
+                session.clearNowPlaying()
+                if !marks.isEmpty { marks = [] }
+                marksKey = nil
+            }
             return
+        }
+        let key = "\(item.id)#\(script.segments.count)"
+        if key != marksKey {
+            marksKey = key
+            marks = script.marks
         }
         let total = script.estimatedDuration(rate: new.rate.multiplier)
         session.updateNowPlaying(title: item.title, feed: item.feedTitle, elapsed: total * new.progress, duration: total,
