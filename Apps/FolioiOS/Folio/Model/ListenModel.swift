@@ -6,6 +6,7 @@ import FolioCore
 import FolioAudio
 import FolioFreshRSS
 import FolioNeural
+import Network
 
 /// What the page shows while narrating. Word plus sentence helps people
 /// who lose their place (and readers with dyslexia); some prefer less.
@@ -51,6 +52,8 @@ struct ListenPreferences: Codable, Equatable {
     /// Its voices, remembered so they show offline.
     var serverVoiceIDs: [String] = []
     var highlightStyle: NarrationHighlightStyle = .wordAndSentence
+    /// The user removed the natural voices: Ivy isn't downloaded again by itself.
+    var naturalVoicesRemoved = false
 
     init() {}
 
@@ -77,6 +80,7 @@ struct ListenPreferences: Codable, Equatable {
         voiceServerURL = try c.decodeIfPresent(String.self, forKey: .voiceServerURL)
         serverVoiceIDs = try c.decodeIfPresent([String].self, forKey: .serverVoiceIDs) ?? []
         highlightStyle = try c.decodeIfPresent(NarrationHighlightStyle.self, forKey: .highlightStyle) ?? defaults.highlightStyle
+        naturalVoicesRemoved = try c.decodeIfPresent(Bool.self, forKey: .naturalVoicesRemoved) ?? false
     }
 }
 
@@ -163,6 +167,8 @@ final class ListenModel {
     @ObservationIgnored private var lastSavedAt = Date.distantPast
     @ObservationIgnored private let previewer = VoicePreviewer()
     @ObservationIgnored private var voicesObserver: NSObjectProtocol?
+    /// Waits for Wi-Fi before Ivy's first download.
+    @ObservationIgnored private var ivyNetwork: NWPathMonitor?
 
     func attach(to app: AppModel) {
         self.app = app
@@ -178,6 +184,7 @@ final class ListenModel {
             }
         }
         installedModels = neuralModels.installed
+        prepareIvy()
         synthesizers = RoutingSynthesizer([NeuralVoiceCatalog.prefix: neuralSynthesizer])
         if let address = preferences.voiceServerURL, let base = VoiceServer.normalizedBase(address) {
             serverVoices = preferences.serverVoiceIDs.map(VoiceServer.voice(serverID:))
@@ -241,7 +248,8 @@ final class ListenModel {
             pronunciation: PronunciationRules(userEntries: app?.entitlements.isPremium == true ? preferences.pronunciations : []),
             cleanup: preferences.cleanup,
             switchLanguagePerParagraph: preferences.languageOverride == nil && preferences.switchLanguagePerParagraph,
-            announceSource: preferences.announceSource, detectedLanguage: detected)
+            announceSource: preferences.announceSource, detectedLanguage: detected,
+            defaultLanguage: app?.libraryLanguages.first.map { LanguageCode($0) })
     }
 
     var highlight: NarrationHighlight? {
@@ -471,7 +479,7 @@ final class ListenModel {
     var currentVoice: SpeechVoice? {
         guard state.item != nil else { return nil }
         let base = controller.currentScript?.language?.base ?? "en"
-        if let id = preferences.voiceByLanguage[base], isUsable(id) {
+        if let id = chosenVoiceID(for: base), isUsable(id) {
             return voices.first { $0.id == id }
         }
         return engine.resolvedVoice(for: controller.currentScript?.language)
@@ -511,22 +519,55 @@ final class ListenModel {
     /// is read by Apple's voices.
     func neuralVoiceID(for segment: SpeechSegment) -> String? {
         let base = segment.language?.base ?? controller?.currentScript?.language?.base ?? "en"
-        guard let id = segment.voiceID ?? preferences.voiceByLanguage[base], isUsable(id) else { return nil }
+        guard let id = segment.voiceID ?? chosenVoiceID(for: base), isUsable(id) else { return nil }
         return id
+    }
+
+    /// The voice for a language: the one the user chose (Apple or natural),
+    /// otherwise Ivy once she's on the device, otherwise nil (Apple's best).
+    func chosenVoiceID(for base: String) -> String? {
+        if let id = preferences.voiceByLanguage[base] { return id }
+        guard let ivy = NeuralVoiceCatalog.includedVoiceID(for: base), isUsable(ivy) else { return nil }
+        return ivy
+    }
+
+    /// Ivy downloads by herself on the first launch, on Wi-Fi only, so the
+    /// first article is already read in her voice. Once she's there her
+    /// model is loaded early, so the first word comes quickly. Removed
+    /// voices stay removed until the user downloads them again.
+    private func prepareIvy() {
+        if installedModels.contains(NeuralVoiceCatalog.includedModel) {
+            let synthesizer = neuralSynthesizer
+            Task.detached(priority: .utility) { try? await synthesizer.prepare(NeuralVoiceCatalog.includedModel) }
+            return
+        }
+        guard !preferences.naturalVoicesRemoved, !AppModel.isUIReset, !AppModel.isDemoLaunch, ivyNetwork == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard path.status == .satisfied, !path.isExpensive, !path.isConstrained else { return }
+            Task { @MainActor [weak self] in
+                guard let self, let network = self.ivyNetwork else { return }
+                network.cancel()
+                self.ivyNetwork = nil
+                if !self.installedModels.contains(NeuralVoiceCatalog.includedModel) { self.downloadModel(NeuralVoiceCatalog.includedModel) }
+            }
+        }
+        ivyNetwork = monitor
+        monitor.start(queue: DispatchQueue(label: "paperwire.ivy-network"))
     }
 
     /// True when a language is read by a neural voice that reports no word
     /// timings (Supertonic, Paradee). Narration then goes sentence by
     /// sentence, so the page can show exactly which sentence is being read.
     func voiceLacksWordTimings(for language: LanguageCode?) -> Bool {
-        guard let id = preferences.voiceByLanguage[language?.base ?? "en"], isUsable(id),
+        guard let id = chosenVoiceID(for: language?.base ?? "en"), isUsable(id),
               let voice = NeuralVoiceCatalog.voice(id) else { return false }
         return !voice.model.hasWordTimings
     }
 
     /// A neural or server voice narration may use right now.
     func isUsable(_ id: String) -> Bool {
-        guard neuralVoicesAllowed else { return false }
+        guard neuralVoicesAllowed || NeuralVoiceCatalog.isIncluded(id) else { return false }
         if let voice = NeuralVoiceCatalog.voice(id) { return installedModels.contains(voice.model) }
         if VoiceServer.isServerVoice(id) { return serverVoices.contains { $0.id == id } }
         return false
@@ -545,11 +586,11 @@ final class ListenModel {
         refreshActiveVoice()
     }
 
-    /// Languages whose default is this neural voice.
+    /// Languages this neural voice reads, chosen or (Ivy) by default.
     func languages(using modelVoice: String, model: NeuralVoiceCatalog.Model) -> [String] {
         NeuralVoiceCatalog.all.filter { $0.model == model && $0.modelVoice == modelVoice }
+            .filter { chosenVoiceID(for: LanguageCode($0.language).base) == $0.id }
             .map { LanguageCode($0.language).base }
-            .filter { preferences.voiceByLanguage[$0].flatMap(NeuralVoiceCatalog.voice)?.modelVoice == modelVoice }
     }
 
     // MARK: Voice server
@@ -616,6 +657,7 @@ final class ListenModel {
     func downloadModel(_ model: NeuralVoiceCatalog.Model) {
         guard modelDownloads[model] != .downloading else { return }
         modelDownloads[model] = .downloading
+        preferences.naturalVoicesRemoved = false
         let synthesizer = neuralSynthesizer
         let store = neuralModels
         Task { [weak self] in
@@ -653,6 +695,7 @@ final class ListenModel {
         for (feed, id) in preferences.feedVoices where NeuralVoiceCatalog.isNeural(id) {
             preferences.feedVoices[feed] = nil
         }
+        preferences.naturalVoicesRemoved = true
         await loadVoices()
     }
 

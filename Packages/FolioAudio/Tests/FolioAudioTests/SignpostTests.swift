@@ -87,3 +87,46 @@ struct SignpostTests {
         #expect(rules.spoken("The CEO (who joined in 2019) said yes.", language: .english) == "The CEO (who joined in 2019) said yes.")
     }
 }
+
+@Suite("Ivy and station language")
+struct IvyAndStationLanguageTests {
+    @Test func ivyIsIncludedInHerFiveLanguages() {
+        for base in ["en", "de", "es", "cs", "sk"] {
+            let id = NeuralVoiceCatalog.includedVoiceID(for: base)
+            #expect(id == "neural.supertonic.F1.\(base)")
+            #expect(NeuralVoiceCatalog.isIncluded(id!))
+        }
+        #expect(NeuralVoiceCatalog.includedVoiceID(for: "fr") == nil)
+        #expect(!NeuralVoiceCatalog.isIncluded("neural.supertonic.F2.en"))
+        #expect(!NeuralVoiceCatalog.isIncluded("neural.kokoro.af_heart"))
+    }
+
+    @Test func unknownLanguageFallsBackToTheLibrarysNotThePhones() {
+        let doc = ArticleParser.parse(html: "<p>Ok.</p>", title: nil)
+        let script = SpeechScript.build(document: doc, title: "Hi", options: SpeechScriptOptions(defaultLanguage: .english),
+                                        languageGuesser: nil)
+        #expect(script.language == .english)
+        #expect(script.segments.allSatisfy { $0.language == .english })
+    }
+
+    private func story(_ id: String, _ language: LanguageCode?) -> RadioCandidate {
+        RadioCandidate(item: ListenItem(id: ArticleID(id), title: "Story \(id)", feedTitle: "Feed \(id)"), feedID: FeedID("feed/\(id)"),
+                       categoryIDs: [], language: language, wordCount: 300, publishedAt: Date(timeIntervalSince1970: 1_761_900_000))
+    }
+
+    @Test func stationsOpenInTheStoriesLanguageNotThePhones() throws {
+        // A Spanish phone, English news: the first words are English.
+        let english = try #require(BulletinPlanner.build(candidates: [story("1", .english), story("2", .english), story("3", .german)],
+                                                         filters: RadioFilters(), bulletinLanguage: .spanish))
+        #expect(english.opening.language == .english && english.opening.text.contains("Paperwire bulletin"))
+        #expect(english.closing.language == .german)  // the last story is German
+        // Czech news opens in Czech, with Czech plurals.
+        let czech = try #require(BulletinPlanner.build(candidates: [story("4", .czech), story("5", .czech)], filters: RadioFilters(),
+                                                       now: Date(timeIntervalSince1970: 1_761_900_000), bulletinLanguage: .english))
+        #expect(czech.opening.language == .czech && czech.opening.text.contains("přehled Paperwire: 2 příběhy z 2 zdrojů"))
+        #expect(czech.stories[0].introduction.hasPrefix("Nejprve Feed"))
+        // Nothing known: the given language.
+        let unknown = try #require(BulletinPlanner.build(candidates: [story("6", nil)], filters: RadioFilters(), bulletinLanguage: .german))
+        #expect(unknown.opening.language == .german)
+    }
+}

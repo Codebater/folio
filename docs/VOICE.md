@@ -84,6 +84,13 @@ ReadAlongController ─► HybridSpeechEngine ─┬─► AppleSpeechEngine    
 - **Word timing.** `KokoroAlignment` turns Kokoro's predicted frames per phoneme into word times, then matches Kokoro's normalized words to our spoken text. Only certain matches count: identical words, a single word Kokoro read as several ("2026" → "twenty twenty six"), and short equal gaps between them. If phonemes were dropped, the counts differ or nothing matches, the paragraph gets no word timings and is tinted instead. Long paragraphs are rendered in sentence-sized pieces so each stays within Kokoro's single-chunk limit.
 - **Failures are visible.** A paragraph that can't be rendered stops narration with a message. Folio never switches to another voice silently.
 
+### Ivy, the default voice
+
+Ivy (Supertonic-3, style F1) comes with the app for everyone. She reads every article in English, German, Spanish, Czech and Slovak unless the user picked another voice for that language. The other natural voices (Nora, Leo, Max, Paradee Lite, Kokoro, voice servers) are part of Premium.
+
+- **Download:** on the first launch Paperwire waits for Wi-Fi, then downloads her once. Until she's ready, Apple's best voice reads. Removing the natural voices in Settings stops the automatic download until the user downloads them again.
+- **Quick start:** once she's on the device, her model is loaded at launch, so the first word doesn't wait for it.
+
 ### Which language, which voice
 
 The thresholds follow published language-identification accuracy (Lingua's reports: short English is most often mistaken for French, Slovak for Czech) and the FluidAudio and Kokoro documentation.
@@ -99,7 +106,8 @@ The thresholds follow published language-identification accuracy (Lingua's repor
   - the language is one the reader actually reads (3% of the library, or 10 articles), or one with a chosen voice.
 
   Apple's recognizer only chooses among those languages, tipped towards the feed's. Czech and Slovak never switch between each other inside an article. Headings, titles and introductions always use the article's language.
-- **Stations** plan each story's introduction in the feed's language, unless the article is long enough to decide for itself.
+- **Stations** plan each story's introduction in the feed's language, unless the article is long enough to decide for itself. The opening speaks the first story's language and the closing the last story's, never the phone's language: a Spanish phone with English news opens in English.
+- **Unknown language.** When nothing tells the language of an article, it is read in the library's most common language, not the phone's.
 - **Kokoro servers** get `lang_code` from the text's language, so English is never pronounced through Kokoro's Spanish pipeline.
 
 ### How articles are read

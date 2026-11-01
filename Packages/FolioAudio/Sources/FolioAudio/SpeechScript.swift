@@ -80,6 +80,10 @@ public struct SpeechScriptOptions: Sendable {
     /// Base languages a paragraph may switch to (the languages the reader
     /// actually reads); nil allows any.
     public var switchLanguages: Set<String>?
+    /// When nothing else says which language an article is in: the language
+    /// most of the library uses. Better than the phone's language, which a
+    /// Spanish-speaking reader of English news would otherwise hear.
+    public var defaultLanguage: LanguageCode?
     public var pronunciation: PronunciationRules
     public var cleanup: SpeechCleanup
     /// Paragraphs in another language than the article are read with that
@@ -99,7 +103,8 @@ public struct SpeechScriptOptions: Sendable {
                 pronunciation: PronunciationRules = PronunciationRules(), cleanup: SpeechCleanup = SpeechCleanup(),
                 switchLanguagePerParagraph: Bool = true, preferredVoice: PreferredVoice? = nil,
                 sourceName: String? = nil, announceSource: Bool = false, titlePause: Double = 0.9,
-                detectedLanguage: LanguageCode? = nil, feedLanguage: LanguageCode? = nil, switchLanguages: Set<String>? = nil) {
+                detectedLanguage: LanguageCode? = nil, feedLanguage: LanguageCode? = nil, switchLanguages: Set<String>? = nil,
+                defaultLanguage: LanguageCode? = nil) {
         self.granularity = granularity
         self.includeTitle = includeTitle
         self.paragraphPause = paragraphPause
@@ -116,6 +121,7 @@ public struct SpeechScriptOptions: Sendable {
         self.detectedLanguage = detectedLanguage
         self.feedLanguage = feedLanguage
         self.switchLanguages = switchLanguages
+        self.defaultLanguage = defaultLanguage
     }
 }
 
@@ -177,7 +183,7 @@ public struct SpeechScript: Sendable {
         let sample = String(document.blocks.filter(\.isSpeakable).map(\.text).joined(separator: " ").prefix(3000))
         let language = options.language ?? ArticleLanguage.resolve(
             text: sample, guesser: languageGuesser, feed: options.feedLanguage,
-            fallback: options.detectedLanguage ?? document.language)
+            fallback: options.detectedLanguage ?? document.language) ?? options.defaultLanguage
         var segments: [SpeechSegment] = []
         var order: [String] = []
 

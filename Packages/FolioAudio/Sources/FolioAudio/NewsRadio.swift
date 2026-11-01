@@ -133,12 +133,17 @@ public enum BulletinPlanner {
             perFeed[candidate.feedID, default: 0] += 1
         }
         guard !chosen.isEmpty else { return nil }
+        // The opening speaks the first story's language and the closing the
+        // last one's, so the voice flows straight into and out of the news.
+        // A Spanish phone with English feeds opens in English.
+        let spoken = spokenLanguage(of: chosen.first, fallback: bulletinLanguage)
+        let closingLanguage = spokenLanguage(of: chosen.last, fallback: spoken)
 
         let stories = chosen.enumerated().map { index, candidate in
             Bulletin.Story(
-                item: candidate.item, language: candidate.language,
+                item: candidate.item, language: candidate.language ?? spoken,
                 introduction: Phrases.introduction(feed: candidate.item.feedTitle, title: candidate.item.title,
-                                                   isFirst: index == 0, language: candidate.language ?? bulletinLanguage),
+                                                   isFirst: index == 0, language: candidate.language ?? spoken),
                 estimatedSeconds: seconds(candidate))
         }
         let sources = Set(chosen.map(\.feedID)).count
@@ -146,8 +151,8 @@ public enum BulletinPlanner {
         return Bulletin(
             stories: stories,
             opening: SpeechAnnouncement(Phrases.opening(stories: stories.count, sources: sources, minutes: minutes, now: now,
-                                                        language: bulletinLanguage), language: bulletinLanguage),
-            closing: SpeechAnnouncement(Phrases.closing(language: bulletinLanguage), language: bulletinLanguage),
+                                                        language: spoken), language: spoken),
+            closing: SpeechAnnouncement(Phrases.closing(language: closingLanguage), language: closingLanguage),
             createdAt: now, markReadWhenFinished: filters.markReadWhenFinished, mode: mode)
     }
 
@@ -155,7 +160,14 @@ public enum BulletinPlanner {
         Int((Double(words) / (wordsPerMinute * max(rate, 0.25)) * 60).rounded(.up)) + introductionSeconds
     }
 
-    /// Spoken phrases for the four tuned languages; anything else uses English.
+    /// A story's language when there are phrases for it; English when it
+    /// speaks another one; `fallback` when it isn't known.
+    static func spokenLanguage(of story: RadioCandidate?, fallback: LanguageCode) -> LanguageCode {
+        guard let base = story?.language?.base else { return fallback }
+        return LanguageCode.tuned.contains { $0.base == base } ? LanguageCode(base) : .english
+    }
+
+    /// Spoken phrases for the tuned languages; anything else uses English.
     enum Phrases {
         static func opening(stories: Int, sources: Int, minutes: Int, now: Date, language: LanguageCode) -> String {
             let hour = Calendar(identifier: .gregorian).component(.hour, from: now)
@@ -169,6 +181,9 @@ public enum BulletinPlanner {
             case "sk":
                 let greeting = hour < 10 ? "Dobré ráno." : (hour < 18 ? "Dobrý deň." : "Dobrý večer.")
                 return "\(greeting) Toto je váš prehľad Paperwire: \(stories) \(slovakCount(stories, "príbeh", "príbehy", "príbehov")) z \(sources) \(slovakCount(sources, "zdroja", "zdrojov", "zdrojov")), asi \(minutes) \(slovakCount(minutes, "minúta", "minúty", "minút"))."
+            case "cs":
+                let greeting = hour < 10 ? "Dobré ráno." : (hour < 18 ? "Dobrý den." : "Dobrý večer.")
+                return "\(greeting) Tady je váš přehled Paperwire: \(stories) \(slovakCount(stories, "příběh", "příběhy", "příběhů")) z \(sources) \(slovakCount(sources, "zdroje", "zdrojů", "zdrojů")), asi \(minutes) \(slovakCount(minutes, "minuta", "minuty", "minut"))."
             default:
                 let greeting = hour < 12 ? "Good morning." : (hour < 18 ? "Good afternoon." : "Good evening.")
                 return "\(greeting) This is your Paperwire bulletin: \(stories) \(stories == 1 ? "story" : "stories") from \(sources) \(sources == 1 ? "source" : "sources"), about \(minutes) \(minutes == 1 ? "minute" : "minutes")."
@@ -180,6 +195,7 @@ public enum BulletinPlanner {
             case "de": return isFirst ? "Zuerst, von \(feed): \(title)." : "Als Nächstes, von \(feed): \(title)."
             case "es": return isFirst ? "Primero, de \(feed): \(title)." : "A continuación, de \(feed): \(title)."
             case "sk": return isFirst ? "Najprv \(feed): \(title)." : "Ďalej \(feed): \(title)."
+            case "cs": return isFirst ? "Nejprve \(feed): \(title)." : "Dále \(feed): \(title)."
             default: return isFirst ? "First, from \(feed): \(title)." : "Next, from \(feed): \(title)."
             }
         }
@@ -189,11 +205,13 @@ public enum BulletinPlanner {
             case "de": return "Das war Ihr Überblick. Danke fürs Zuhören."
             case "es": return "Eso es todo por ahora. Gracias por escuchar."
             case "sk": return "To je na teraz všetko. Ďakujeme, že ste počúvali."
+            case "cs": return "To je zatím všechno. Děkujeme, že jste poslouchali."
             default: return "That's the bulletin. Thanks for listening."
             }
         }
 
-        /// Slovak plural forms: 1, 2–4, 5+ (with "z" the genitive is used: 1 zdroja, 2+ zdrojov).
+        /// Slovak and Czech plural forms: 1, 2–4, 5+ (with "z" the genitive is
+        /// used: 1 zdroja, 2+ zdrojov; 1 zdroje, 2+ zdrojů).
         static func slovakCount(_ n: Int, _ one: String, _ few: String, _ many: String) -> String {
             n == 1 ? one : ((2...4).contains(n) ? few : many)
         }

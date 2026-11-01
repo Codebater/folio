@@ -125,6 +125,21 @@ public enum NeuralVoiceCatalog {
 
     public static func isNeural(_ id: String) -> Bool { id.hasPrefix(prefix) }
 
+    /// Ivy (Supertonic-3, style F1) comes with the app for everyone and reads
+    /// by default in the five languages she speaks, once downloaded. The
+    /// other natural voices are part of Premium.
+    public static let includedModel = Model.supertonic
+    public static let includedModelVoice = "F1"
+
+    /// Ivy's voice id for a language, if she speaks it.
+    public static func includedVoiceID(for languageBase: String) -> String? {
+        all.first { $0.model == includedModel && $0.modelVoice == includedModelVoice && LanguageCode($0.language).base == languageBase }?.id
+    }
+
+    public static func isIncluded(_ id: String) -> Bool {
+        voice(id).map { $0.model == includedModel && $0.modelVoice == includedModelVoice } ?? false
+    }
+
     public static let all: [Voice] = {
         let kokoro: [(String, String, String, SpeechVoice.Gender)] = [
             ("af_heart", "Heart", "en-US", .female), ("af_bella", "Bella", "en-US", .female),

@@ -71,7 +71,8 @@ struct BulletinPlannerTests {
             "A continuación, de La Brújula: Story es.", "Ďalej Horizont: Story sk.",
         ])
         #expect(bulletin.opening.text.hasPrefix("Good morning. This is your Paperwire bulletin: 4 stories from 4 sources"))
-        #expect(bulletin.closing.text == "That's the bulletin. Thanks for listening.")
+        // Opens in the first story's language, closes in the last one's.
+        #expect(bulletin.closing.text == "To je na teraz všetko. Ďakujeme, že ste počúvali.")
     }
 
     @Test func localizesOpeningsWithPlurals() {
@@ -114,7 +115,8 @@ struct RadioPlaybackTests {
             bulletinLanguage: .english))
         let s = script(for: bulletin, "de")
         #expect(s.segments.map(\.blockID) == ["announcement-0", "announcement-1", "b0", "announcement-2"])
-        #expect(s.segments.map { $0.language?.base } == ["en", "de", "de", "en"])
+        // A German-only station opens and closes in German, whatever the phone's language.
+        #expect(s.segments.map { $0.language?.base } == ["de", "de", "de", "de"])
         #expect(s.segments.filter(\.isAnnouncement).count == 3)
 
         let engine = SimulatedSpeechEngine()

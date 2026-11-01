@@ -23,7 +23,7 @@ public struct LanguageCode: RawRepresentable, Hashable, Sendable, Codable, Custo
     public static let french = LanguageCode("fr")
 
     /// Languages Folio tunes pronunciation rules and voice defaults for.
-    public static let tuned: [LanguageCode] = [.english, .german, .spanish, .slovak]
+    public static let tuned: [LanguageCode] = [.english, .german, .spanish, .slovak, .czech]
 }
 
 /// Decides which language an article is read in. A guess from a two-line

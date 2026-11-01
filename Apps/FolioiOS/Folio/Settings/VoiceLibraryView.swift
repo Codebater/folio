@@ -241,7 +241,7 @@ struct VoiceDetailView: View {
     @State private var showPremium = false
 
     private var language: String { voice.languageCode.base }
-    private var isDefault: Bool { listen.preferences.voiceByLanguage[language] == voice.id }
+    private var isDefault: Bool { listen.chosenVoiceID(for: language) == voice.id }
     private var neuralModel: NeuralVoiceCatalog.Model? { NeuralVoiceCatalog.voice(voice.id)?.model }
     private var isNatural: Bool { neuralModel != nil || VoiceServer.isServerVoice(voice.id) }
     private var needsDownload: Bool { neuralModel.map { !listen.installedModels.contains($0) } ?? false }
@@ -287,7 +287,7 @@ struct VoiceDetailView: View {
 
             Section {
                 Button {
-                    if isNatural && !isDefault && !listen.neuralVoicesAllowed {
+                    if isNatural && !isDefault && !listen.neuralVoicesAllowed && !NeuralVoiceCatalog.isIncluded(voice.id) {
                         showPremium = true
                     } else {
                         listen.setDefaultVoice(isDefault ? nil : voice, for: language)

@@ -12,8 +12,8 @@ struct NaturalVoicesView: View {
     var body: some View {
         List {
             Section {
-                modelRow(.supertonic, title: "Supertonic-3",
-                         detail: "One voice for Czech, Slovak, German, English and Spanish · highlights the sentence")
+                modelRow(.supertonic, title: "Ivy and friends",
+                         detail: "Czech, Slovak, German, English and Spanish · Ivy is included and reads by default")
                 if listen.installedModels.contains(.supertonic) {
                     voicePicker(.supertonic)
                 }
@@ -33,8 +33,8 @@ struct NaturalVoicesView: View {
             } header: {
                 Text("On this iPhone")
             } footer: {
-                Text("Downloaded once, then they work offline. Tap ▶ to hear a voice and Use to make it yours; you can still choose another voice per language in Voices. "
-                     + (listen.isTestBuild ? "In this test build they work without Premium." : "Listening with them is part of Premium; previews are free."))
+                Text("Downloaded once, then they work offline. Ivy comes with Paperwire: she downloads by herself on Wi-Fi and reads every article unless you pick another voice. Tap ▶ to hear a voice and Use to make it yours. "
+                     + (listen.isTestBuild ? "In this test build every voice works without Premium." : "The other natural voices are part of Premium; previews are free."))
             }
 
             Section {

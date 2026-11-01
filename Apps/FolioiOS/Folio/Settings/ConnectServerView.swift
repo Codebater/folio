@@ -157,7 +157,7 @@ struct PremiumView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Paperwire Premium").font(.system(.largeTitle, design: .serif, weight: .bold))
-                        Text("Paperwire stays free for reading with every typeface, offline articles, FreshRSS, News Radio and listening with any Apple voice. Premium funds development and adds the extras.")
+                        Text("Paperwire stays free for reading with every typeface, offline articles, FreshRSS, News Radio and listening with Ivy, our natural voice, or any Apple voice. Premium funds development and adds the extras.")
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 8)
