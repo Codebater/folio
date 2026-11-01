@@ -64,6 +64,11 @@ public struct SpeechCleanup: Hashable, Sendable, Codable {
     static let emojiPattern = try! NSRegularExpression(
         pattern: "\\s?(?:[\\p{Extended_Pictographic}\\x{1F1E6}-\\x{1F1FF}][\\x{FE0F}\\x{200D}\\x{1F3FB}-\\x{1F3FF}\\x{1F1E6}-\\x{1F1FF}\\p{Extended_Pictographic}]*)+")
     static let parentheticalPattern = try! NSRegularExpression(pattern: "\\s?[(\\[][^()\\[\\]]{1,160}[)\\]]")
+    // Phrasing: a dash or a bracket marks an aside, which a narrator sets off
+    // with short pauses. Neural voices read raw dashes and brackets as
+    // nothing and run the clauses together; a comma gives the pause.
+    static let dashPattern = try! NSRegularExpression(pattern: "\\s*\\u2014\\s*|\\s+[\\u2013-]\\s+")
+    static let asidePattern = try! NSRegularExpression(pattern: "\\s?\\(([^()]{1,160})\\)(\\s*[.,;:!?])?")
     static let boilerplatePatterns: [NSRegularExpression] = [
         "^the post .+ appeared first on .+$",
         "^(this (article|post|story) (was )?(originally )?(appeared|published|posted) (first )?(on|in|at) .+)$",
@@ -71,8 +76,9 @@ public struct SpeechCleanup: Hashable, Sendable, Codable {
         "^(share( this)?|related( posts| articles| stories)?|you (may|might) also like|subscribe( to (our|the) newsletter)?|follow us( on .+)?)\\W*$",
     ].map { try! NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
 
-    /// Speech-only removals inside a piece of text.
-    public func edits(for text: String) -> [PronunciationEdit] {
+    /// Speech-only removals inside a piece of text, plus phrasing (dashes and
+    /// brackets as pauses) for body text; titles and headings have their own cleanup.
+    public func edits(for text: String, phrasing: Bool = true) -> [PronunciationEdit] {
         let range = NSRange(location: 0, length: text.utf16.count)
         var edits: [PronunciationEdit] = []
         if citations {
@@ -86,8 +92,32 @@ public struct SpeechCleanup: Hashable, Sendable, Codable {
         }
         if parentheticals {
             edits += Self.parentheticalPattern.matches(in: text, range: range).map(Self.removal)
+        } else if phrasing {
+            edits += Self.asides(in: text, range: range)
+        }
+        guard phrasing else { return edits }
+        edits += Self.dashPattern.matches(in: text, range: range).compactMap { match in
+            // A dash that ends the text or a sentence needs no pause of its own.
+            let after = match.range.location + match.range.length
+            let units = Array(text.utf16)
+            if after >= units.count || [0x2E, 0x21, 0x3F, 0x2C].contains(units[after]) { return Self.removal(match) }
+            return PronunciationEdit(range: match.range.location..<after, replacement: ", ")
         }
         return edits
+    }
+
+    /// "The CEO (who joined in 2019) said yes." → "The CEO, who joined in
+    /// 2019, said yes." Brackets before punctuation only open with a comma.
+    static func asides(in text: String, range: NSRange) -> [PronunciationEdit] {
+        asidePattern.matches(in: text, range: range).flatMap { match -> [PronunciationEdit] in
+            let inner = match.range(at: 1)
+            guard inner.location != NSNotFound else { return [] }
+            let open = match.range.location..<inner.location
+            let closeStart = inner.location + inner.length
+            let closesBeforePunctuation = match.range(at: 2).location != NSNotFound
+            return [PronunciationEdit(range: open, replacement: ", "),
+                    PronunciationEdit(range: closeStart..<(closeStart + 1), replacement: closesBeforePunctuation ? "" : ",")]
+        }
     }
 
     /// Superscript spans that only hold reference numbers ("1", "2,3", "[4]").

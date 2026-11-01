@@ -145,7 +145,8 @@ public actor FluidSpeechSynthesizer: SpeechSynthesizing {
     static func polished(_ rendered: Rendered) -> Rendered {
         let (samples, removed) = AudioPolish.trimmed(rendered.samples, sampleRate: rendered.sampleRate)
         let duration = Double(samples.count) / Double(rendered.sampleRate)
-        return Rendered(samples: AudioPolish.normalized(samples, sampleRate: rendered.sampleRate), sampleRate: rendered.sampleRate,
+        let even = AudioPolish.normalized(samples, sampleRate: rendered.sampleRate)
+        return Rendered(samples: AudioPolish.faded(even, sampleRate: rendered.sampleRate), sampleRate: rendered.sampleRate,
                         words: rendered.words.map { AudioPolish.moved($0, back: removed, duration: duration) })
     }
 

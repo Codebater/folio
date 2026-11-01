@@ -196,6 +196,9 @@ final class ListenModel {
         neural = TimedSpeechEngine(synthesizer: synthesizers, output: ClipOutput())
         neural.voices = NeuralVoiceCatalog.speechVoices(installed: installedModels)
         neural.voiceForSegment = { [weak self] in self?.neuralVoiceID(for: $0) }
+        // Short sentences (sentence-by-sentence voices) need more rendered
+        // ahead, so a long sentence can't make playback wait.
+        neural.lookahead = 4
         narration = HybridSpeechEngine(primary: engine, secondary: neural) { [weak self] in self?.neuralVoiceID(for: $0) != nil }
         Task { [weak self] in
             let testBuild = await Self.detectTestBuild()
@@ -206,6 +209,7 @@ final class ListenModel {
             await app?.speechScript(for: item.id)
         }
         controller.continuousPlayback = preferences.continuousPlayback
+        controller.onNextPrepared = { [weak self] script in self?.renderAhead(script) }
         controller.setRate(SpeechRate(preferences.rate))
         engine.preferredVoiceIDs = preferences.voiceByLanguage
         controller.onChange = { [weak self] state in self?.stateChanged(state) }
@@ -521,6 +525,22 @@ final class ListenModel {
         let base = segment.language?.base ?? controller?.currentScript?.language?.base ?? "en"
         guard let id = segment.voiceID ?? chosenVoiceID(for: base), isUsable(id) else { return nil }
         return id
+    }
+
+    /// Renders the next story's first sentences while this one finishes, so
+    /// a natural voice starts it without a pause. They land in the audio
+    /// cache, where narration finds them.
+    private func renderAhead(_ script: SpeechScript) {
+        guard let synthesizer = synthesizers else { return }
+        let pieces = script.segments.prefix(3).compactMap { segment in
+            neuralVoiceID(for: segment).map { (text: segment.spokenText, language: segment.language, voice: $0) }
+        }
+        guard !pieces.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            for piece in pieces {
+                _ = try? await synthesizer.synthesize(text: piece.text, language: piece.language, voiceID: piece.voice)
+            }
+        }
     }
 
     /// The voice for a language: the one the user chose (Apple or natural),

@@ -148,7 +148,8 @@ struct RadioPlaybackTests {
 
         controller.resume()
         for _ in 0..<20 where engine.state != .speaking { await Task.yield() }
-        #expect(requested == ["a"])
+        // The current story loads first; the next one is prepared while it plays.
+        #expect(requested.first == "a")
         engine.step()
         #expect(controller.state.wordRange == 8..<13)  // "three"
     }

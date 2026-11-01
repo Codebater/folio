@@ -33,6 +33,13 @@ struct AudioPolishTests {
         #expect(out.map { abs($0) }.max()! <= AudioPolish.peakLimit + 0.0001)
     }
 
+    @Test func clipsFadeInAndOutWithoutClicks() {
+        let out = AudioPolish.faded([Float](repeating: 0.5, count: rate), sampleRate: rate)
+        #expect(out.first == 0 && abs(out.last!) < 0.01)
+        #expect(out[rate / 2] == 0.5)  // the middle is untouched
+        #expect(AudioPolish.faded([0.3], sampleRate: rate) == [0.3])
+    }
+
     @Test func silenceAtTheEndsIsTrimmedAndTimingsFollow() {
         let samples = [Float](repeating: 0, count: rate / 2) + tone(0.2, seconds: 1) + [Float](repeating: 0, count: rate)
         let (trimmed, removed) = AudioPolish.trimmed(samples, sampleRate: rate)

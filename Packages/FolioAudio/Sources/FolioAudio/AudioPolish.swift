@@ -56,6 +56,21 @@ public enum AudioPolish {
         return (Array(samples[lower..<upper]), Double(lower) / Double(sampleRate))
     }
 
+    /// Short fades at both ends, so a clip never starts or stops on a
+    /// non-zero sample (an audible click). 6 ms is far below what the ear
+    /// hears as a fade.
+    public static func faded(_ samples: [Float], sampleRate: Int, milliseconds: Double = 6) -> [Float] {
+        let length = min(samples.count / 2, Int(Double(sampleRate) * milliseconds / 1000))
+        guard length > 1 else { return samples }
+        var out = samples
+        for i in 0..<length {
+            let gain = Float(i) / Float(length)
+            out[i] *= gain
+            out[out.count - 1 - i] *= gain
+        }
+        return out
+    }
+
     /// Word timings after `trimmed`: moved back and kept inside the audio.
     public static func moved(_ words: [TimedWord], back seconds: Double, duration: Double) -> [TimedWord] {
         words.map { word in

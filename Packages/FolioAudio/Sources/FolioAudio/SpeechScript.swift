@@ -196,7 +196,7 @@ public struct SpeechScript: Sendable {
                 .map { PronunciationEdit(range: ($0.range.lowerBound - range.lowerBound)..<($0.range.upperBound - range.lowerBound),
                                          replacement: $0.replacement) }
             let edits = PronunciationRules.resolve(
-                options.pronunciation.edits(for: slice, language: language) + options.cleanup.edits(for: slice) + local)
+                options.pronunciation.edits(for: slice, language: language) + options.cleanup.edits(for: slice, phrasing: !heading) + local)
             let (spoken, map) = PronunciationRules.apply(edits, to: slice)
             guard spoken.contains(where: { $0.isLetter || $0.isNumber }) else { return }
             let voice = voiceID ?? options.preferredVoice.flatMap { $0.languageBase == language?.base ? $0.id : nil }

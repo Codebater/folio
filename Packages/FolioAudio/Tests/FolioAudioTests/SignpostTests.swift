@@ -79,12 +79,24 @@ struct SignpostTests {
         #expect(rules.spoken("It costs €5 more.", language: .english) == "It costs €5 more.")
     }
 
+    @Test func dashesAndBracketsBecomeNarratorPauses() {
+        let rules = PronunciationRules()
+        #expect(rules.spoken("The plan — if it works — saves a year.", language: .english) == "The plan, if it works, saves a year.")
+        #expect(rules.spoken("Apple – the company – said no.", language: .english) == "Apple, the company, said no.")
+        #expect(rules.spoken("He waited — and then left.", language: .english) == "He waited, and then left.")
+        #expect(rules.spoken("It ended there —.", language: .english) == "It ended there.")
+        #expect(rules.spoken("The CEO (who joined in 2019) said yes.", language: .english) == "The CEO, who joined in 2019, said yes.")
+        #expect(rules.spoken("It rose (again).", language: .english) == "It rose, again.")
+        // Ranges and hyphenated words are left alone.
+        #expect(rules.spoken("From 2019–2021, a well-known case.", language: .english) == "From 2019 to 2021, a well-known case.")
+    }
+
     @Test func emojiAndBracketsLeaveTheSpokenText() {
         let rules = PronunciationRules()
         #expect(rules.spoken("Big news 🎉🎉 today 👍🏽 for 🇩🇪 fans", language: .english) == "Big news today for fans")
         let brackets = SpeechCleanup(parentheticals: true)
         #expect(rules.spoken("The CEO (who joined in 2019) said yes.", language: .english, cleanup: brackets) == "The CEO said yes.")
-        #expect(rules.spoken("The CEO (who joined in 2019) said yes.", language: .english) == "The CEO (who joined in 2019) said yes.")
+        #expect(rules.spoken("The CEO (who joined in 2019) said yes.", language: .english) == "The CEO, who joined in 2019, said yes.")
     }
 }
 
@@ -128,5 +140,37 @@ struct IvyAndStationLanguageTests {
         // Nothing known: the given language.
         let unknown = try #require(BulletinPlanner.build(candidates: [story("6", nil)], filters: RadioFilters(), bulletinLanguage: .german))
         #expect(unknown.opening.language == .german)
+    }
+}
+
+@Suite("Seamless stories")
+struct SeamlessStoryTests {
+    @Test @MainActor func theNextStoryIsPreparedBeforeThisOneEnds() async {
+        let engine = SimulatedSpeechEngine()
+        let long = SpeechScript.build(document: ArticleParser.parse(html: "<p>One.</p><p>Two.</p><p>Three.</p><p>Four.</p><p>Five.</p><p>Six.</p>"),
+                                      title: nil, options: SpeechScriptOptions(includeTitle: false, language: .english))
+        let short = SpeechScript.build(document: ArticleParser.parse(html: "<p>Next story.</p>"), title: nil,
+                                       options: SpeechScriptOptions(includeTitle: false, language: .english))
+        var requests: [String] = []
+        let controller = ReadAlongController(engine: engine) { item in
+            requests.append(item.id.rawValue)
+            return item.id == "b" ? short : long
+        }
+        var preparedSegments: Int?
+        controller.onNextPrepared = { preparedSegments = $0.segments.count }
+        controller.play(script: long, item: ListenItem(id: "a", title: "A", feedTitle: "F"))
+        controller.enqueue(ListenItem(id: "b", title: "B", feedTitle: "F"))
+        // Early on, nothing is fetched yet.
+        engine.step()
+        #expect(requests.isEmpty)
+        // Four segments before the end, the next story is prepared...
+        while controller.state.segmentIndex < 2 && engine.step() {}
+        for _ in 0..<20 where preparedSegments == nil { await Task.yield() }
+        #expect(requests == ["b"] && preparedSegments == 1)
+        // ...and used when it starts, without asking again.
+        while engine.step() {}
+        for _ in 0..<20 where controller.state.item?.id != "b" { await Task.yield() }
+        #expect(controller.state.item?.id == "b")
+        #expect(requests == ["b"])
     }
 }

@@ -111,6 +111,16 @@ public final class ReadAlongController {
     public var sentenceRewind: TimeInterval = 30
     public var paragraphRewind: TimeInterval = 600
 
+    /// When this many segments are left, the next story in the queue is
+    /// prepared (its text fetched and its script built), so stories follow
+    /// each other without a silence while it loads.
+    public var prepareNextWhenSegmentsLeft = 4
+    /// Called with the next story's script once it is prepared, so the app
+    /// can render its first sentences ahead.
+    public var onNextPrepared: (@MainActor (SpeechScript) -> Void)?
+    private var prepared: (id: ArticleID, script: SpeechScript)?
+    private var preparing: ArticleID?
+
     public init(engine: any SpeechEngine, scheduler: any ReadAlongScheduler = TaskScheduler(),
                 scriptProvider: @escaping ScriptProvider) {
         self.engine = engine
@@ -137,8 +147,30 @@ public final class ReadAlongController {
         next.lastError = nil
         next.upNext.removeAll { $0.id == item.id }
         state = next
+        if let ready = prepared, ready.id == item.id {
+            prepared = nil
+            start(ready.script, item: item, from: position)
+            return
+        }
         guard let script = await scriptProvider(item), generation == loadGeneration else { return }
         start(script, item: item, from: position)
+    }
+
+    /// Prepares the next story while this one finishes.
+    private func prepareNext(segmentsLeft: Int) {
+        guard continuousPlayback, segmentsLeft <= prepareNextWhenSegmentsLeft, let next = state.upNext.first,
+              prepared?.id != next.id, preparing != next.id
+        else { return }
+        preparing = next.id
+        let provider = scriptProvider
+        Task { [weak self] in
+            let script = await provider(next)
+            guard let self else { return }
+            self.preparing = nil
+            guard let script, self.state.upNext.first?.id == next.id else { return }
+            self.prepared = (next.id, script)
+            self.onNextPrepared?(script)
+        }
     }
 
     /// Narrates an already built script (the reader has it at hand).
@@ -356,6 +388,7 @@ public final class ReadAlongController {
         switch event {
         case .segmentStarted(let index):
             guard index < script.segments.count else { return }
+            prepareNext(segmentsLeft: script.segments.count - index)
             next.segmentIndex = index
             next.blockID = script.segments[index].blockID
             next.wordRange = nil
