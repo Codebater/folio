@@ -19,7 +19,7 @@ struct NaturalVoicesView: View {
                 }
                 modelRow(.kokoro, title: "Kokoro", detail: "English and Spanish · highlights word by word")
                 if listen.kokoroCrashed {
-                    Text("Kokoro stopped the app while it was speaking on this iPhone, so Folio switched it off and went back to automatic voices for English and Spanish. Tap Download to try it again.")
+                    Text("Kokoro stopped the app while it was speaking on this iPhone, so Paperwire switched it off and went back to automatic voices for English and Spanish. Tap Download to try it again.")
                         .font(.footnote).foregroundStyle(.orange)
                 }
                 if listen.installedModels.contains(.kokoro) {
@@ -187,7 +187,7 @@ struct VoiceServerView: View {
             }
 
             Section {
-                Text("Word-by-word highlighting works with Kokoro-FastAPI. Other servers read fine and highlight the paragraph. Folio caches what it heard on this iPhone, so a paragraph is fetched once, and nothing is sent anywhere else.")
+                Text("Word-by-word highlighting works with Kokoro-FastAPI. Other servers read fine and highlight the paragraph. Paperwire caches what it heard on this iPhone, so a paragraph is fetched once, and nothing is sent anywhere else.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
@@ -267,7 +267,7 @@ struct VoiceLabView: View {
             } header: {
                 Text("Blind test")
             } footer: {
-                Text("Both voices read the same passage at your speed. A and B are shuffled after every vote, so you never know which is which. Apple's side is the voice Folio would pick automatically.")
+                Text("Both voices read the same passage at your speed. A and B are shuffled after every vote, so you never know which is which. Apple's side is the voice Paperwire would pick automatically.")
             }
 
             Section {

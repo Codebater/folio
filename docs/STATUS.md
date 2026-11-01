@@ -1,5 +1,7 @@
 # Status
 
+The app is called Paperwire since 2026-11-01; Folio remains the code name used in these docs and in the modules.
+
 Updated 2026-11-01. Everything below says where it was verified. "Not verified" means not verified.
 
 ## Built

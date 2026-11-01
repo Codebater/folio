@@ -56,7 +56,7 @@ targets:
     info:
       path: Folio/Info.plist
       properties:
-        CFBundleDisplayName: Folio
+        CFBundleDisplayName: Paperwire
         # Without these XcodeGen writes fixed "1.0" / "1", and the build
         # number passed by the TestFlight workflow is ignored.
         CFBundleShortVersionString: $(MARKETING_VERSION)

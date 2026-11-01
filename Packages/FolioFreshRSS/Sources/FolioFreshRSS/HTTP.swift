@@ -61,7 +61,7 @@ public final class URLSessionTransport: HTTPTransport, @unchecked Sendable {
         configuration.timeoutIntervalForRequest = timeout
         configuration.httpCookieStorage = nil
         configuration.urlCache = nil
-        configuration.httpAdditionalHeaders = ["User-Agent": "Folio/0.1 (+https://github.com/Codebater/folio)"]
+        configuration.httpAdditionalHeaders = ["User-Agent": "Paperwire/0.1 (+https://github.com/Codebater/folio)"]
         session = URLSession(configuration: configuration)
     }
 

@@ -127,8 +127,8 @@ func render() async throws {
     let formatter = DateFormatter()
     formatter.dateStyle = .medium
 
-    var index = "<!doctype html><meta charset=utf-8><title>Folio preview</title>"
-        + "<body style=\"font:16px/1.5 system-ui;max-width:40em;margin:3em auto;padding:0 1em\"><h1>Folio preview</h1><ul>"
+    var index = "<!doctype html><meta charset=utf-8><title>Paperwire preview</title>"
+        + "<body style=\"font:16px/1.5 system-ui;max-width:40em;margin:3em auto;padding:0 1em\"><h1>Paperwire preview</h1><ul>"
     for summary in summaries {
         guard let stored = try await store.article(summary.id) else { continue }
         let a = stored.article

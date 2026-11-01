@@ -162,16 +162,16 @@ public enum BulletinPlanner {
             switch language.base {
             case "de":
                 let greeting = hour < 11 ? "Guten Morgen." : (hour < 18 ? "Guten Tag." : "Guten Abend.")
-                return "\(greeting) Ihr Folio-Überblick: \(stories) \(stories == 1 ? "Geschichte" : "Geschichten") aus \(sources) \(sources == 1 ? "Quelle" : "Quellen"), etwa \(minutes) Minuten."
+                return "\(greeting) Ihr Paperwire-Überblick: \(stories) \(stories == 1 ? "Geschichte" : "Geschichten") aus \(sources) \(sources == 1 ? "Quelle" : "Quellen"), etwa \(minutes) Minuten."
             case "es":
                 let greeting = hour < 12 ? "Buenos días." : (hour < 20 ? "Buenas tardes." : "Buenas noches.")
-                return "\(greeting) Este es tu boletín de Folio: \(stories) \(stories == 1 ? "historia" : "historias") de \(sources) \(sources == 1 ? "fuente" : "fuentes"), unos \(minutes) minutos."
+                return "\(greeting) Este es tu boletín de Paperwire: \(stories) \(stories == 1 ? "historia" : "historias") de \(sources) \(sources == 1 ? "fuente" : "fuentes"), unos \(minutes) minutos."
             case "sk":
                 let greeting = hour < 10 ? "Dobré ráno." : (hour < 18 ? "Dobrý deň." : "Dobrý večer.")
-                return "\(greeting) Toto je váš prehľad Folio: \(stories) \(slovakCount(stories, "príbeh", "príbehy", "príbehov")) z \(sources) \(slovakCount(sources, "zdroja", "zdrojov", "zdrojov")), asi \(minutes) \(slovakCount(minutes, "minúta", "minúty", "minút"))."
+                return "\(greeting) Toto je váš prehľad Paperwire: \(stories) \(slovakCount(stories, "príbeh", "príbehy", "príbehov")) z \(sources) \(slovakCount(sources, "zdroja", "zdrojov", "zdrojov")), asi \(minutes) \(slovakCount(minutes, "minúta", "minúty", "minút"))."
             default:
                 let greeting = hour < 12 ? "Good morning." : (hour < 18 ? "Good afternoon." : "Good evening.")
-                return "\(greeting) This is your Folio bulletin: \(stories) \(stories == 1 ? "story" : "stories") from \(sources) \(sources == 1 ? "source" : "sources"), about \(minutes) \(minutes == 1 ? "minute" : "minutes")."
+                return "\(greeting) This is your Paperwire bulletin: \(stories) \(stories == 1 ? "story" : "stories") from \(sources) \(sources == 1 ? "source" : "sources"), about \(minutes) \(minutes == 1 ? "minute" : "minutes")."
             }
         }
 

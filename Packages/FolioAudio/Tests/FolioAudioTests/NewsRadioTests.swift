@@ -70,18 +70,18 @@ struct BulletinPlannerTests {
             "First, from Field Notes: Story en.", "Als Nächstes, von Nachtschicht: Story de.",
             "A continuación, de La Brújula: Story es.", "Ďalej Horizont: Story sk.",
         ])
-        #expect(bulletin.opening.text.hasPrefix("Good morning. This is your Folio bulletin: 4 stories from 4 sources"))
+        #expect(bulletin.opening.text.hasPrefix("Good morning. This is your Paperwire bulletin: 4 stories from 4 sources"))
         #expect(bulletin.closing.text == "That's the bulletin. Thanks for listening.")
     }
 
     @Test func localizesOpeningsWithPlurals() {
         typealias P = BulletinPlanner.Phrases
         #expect(P.opening(stories: 1, sources: 1, minutes: 1, now: morning, language: .slovak)
-            == "Dobré ráno. Toto je váš prehľad Folio: 1 príbeh z 1 zdroja, asi 1 minúta.")
+            == "Dobré ráno. Toto je váš prehľad Paperwire: 1 príbeh z 1 zdroja, asi 1 minúta.")
         #expect(P.opening(stories: 3, sources: 2, minutes: 12, now: morning, language: .slovak)
-            == "Dobré ráno. Toto je váš prehľad Folio: 3 príbehy z 2 zdrojov, asi 12 minút.")
+            == "Dobré ráno. Toto je váš prehľad Paperwire: 3 príbehy z 2 zdrojov, asi 12 minút.")
         #expect(P.opening(stories: 2, sources: 2, minutes: 9, now: morning.addingTimeInterval(11 * 3600), language: .german)
-            == "Guten Abend. Ihr Folio-Überblick: 2 Geschichten aus 2 Quellen, etwa 9 Minuten.")
+            == "Guten Abend. Ihr Paperwire-Überblick: 2 Geschichten aus 2 Quellen, etwa 9 Minuten.")
     }
 
     @Test func placesOpeningIntroductionsAndClosing() throws {

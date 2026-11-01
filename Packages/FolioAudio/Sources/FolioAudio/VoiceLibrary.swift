@@ -105,16 +105,16 @@ public enum VoiceLibrary {
 public enum VoiceSamples {
     public static func sentence(for language: String) -> String {
         switch LanguageCode(language).base {
-        case "de": "So klingt Folio, wenn es dir deine Artikel vorliest."
-        case "es": "Así suena Folio cuando te lee tus artículos."
-        case "sk": "Takto znie Folio, keď vám číta vaše články."
-        case "cs": "Takhle zní Folio, když vám čte vaše články."
-        case "fr": "Voici comment Folio vous lit vos articles."
-        case "it": "Ecco come Folio ti legge i tuoi articoli."
-        case "pt": "É assim que o Folio lê os seus artigos."
-        case "nl": "Zo klinkt Folio als het je artikelen voorleest."
-        case "pl": "Tak brzmi Folio, gdy czyta ci twoje artykuły."
-        default: "This is how Folio sounds when it reads your articles aloud."
+        case "de": "So klingt Paperwire, wenn es dir deine Artikel vorliest."
+        case "es": "Así suena Paperwire cuando te lee tus artículos."
+        case "sk": "Takto znie Paperwire, keď vám číta vaše články."
+        case "cs": "Takhle zní Paperwire, když vám čte vaše články."
+        case "fr": "Voici comment Paperwire vous lit vos articles."
+        case "it": "Ecco come Paperwire ti legge i tuoi articoli."
+        case "pt": "É assim que o Paperwire lê os seus artigos."
+        case "nl": "Zo klinkt Paperwire als het je artikelen voorleest."
+        case "pl": "Tak brzmi Paperwire, gdy czyta ci twoje artykuły."
+        default: "This is how Paperwire sounds when it reads your articles aloud."
         }
     }
 }

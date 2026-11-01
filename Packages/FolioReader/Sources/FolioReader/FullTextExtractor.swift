@@ -520,7 +520,7 @@ public struct FullTextFetcher: Sendable {
         #endif
         request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
         // Pages are fetched for Reader-style reading on the user's device, as Safari's Reader does.
-        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1 Folio/0.1",
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1 Paperwire/0.1",
                          forHTTPHeaderField: "User-Agent")
         let response = try await transport(request)
         guard response.status == 200, response.data.count <= 5_000_000,

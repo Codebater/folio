@@ -1,8 +1,10 @@
-# Folio
+# Paperwire
 
-A native iPhone RSS reader that sets your feeds like a book and reads them aloud, offline, highlighting every word as it is spoken. It syncs with your own FreshRSS server.
+*RSS Reader & Radio.* A native iPhone RSS reader that sets your feeds like a book and reads them aloud, offline, highlighting every word as it is spoken. It syncs with your own FreshRSS server.
 
 **Status:** Milestone 1 (working reader) and Milestone 2 (voice) are built and pass CI. Physical-iPhone checks are next. See [docs/STATUS.md](docs/STATUS.md) for what was tested where and what is still open.
+
+Paperwire is the app's name. The code still uses its working name, Folio: module names (`FolioCore`, `FolioAudio`, …), the Xcode target and the bundle id stay as they are, so nothing on users' phones moves.
 
 ## What it does
 
@@ -61,4 +63,4 @@ python -I MockServer/mock_freshrss.py
 
 ## License
 
-Code: [Functional Source License 1.1, ALv2 Future License](LICENSE) (FSL-1.1-ALv2), a "Fair Source" licence: the source is public, but it is not OSI-approved open source. You may read, use, modify and self-host Folio for any purpose except offering a competing commercial product or service. Each version becomes Apache 2.0 two years after its release. The Folio name and app icon are not covered by the licence. See [NOTICE](NOTICE) for third-party components.
+Code: [Functional Source License 1.1, ALv2 Future License](LICENSE) (FSL-1.1-ALv2), a "Fair Source" licence: the source is public, but it is not OSI-approved open source. You may read, use, modify and self-host Folio for any purpose except offering a competing commercial product or service. Each version becomes Apache 2.0 two years after its release. The Paperwire name and app icon are not covered by the licence. See [NOTICE](NOTICE) for third-party components.

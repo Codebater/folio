@@ -41,7 +41,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Reading")
                 } footer: {
-                    Text("For feeds that send only a summary, Folio loads the article from the publisher's page, like Reader view. After a sync: Wi-Fi only.")
+                    Text("For feeds that send only a summary, Paperwire loads the article from the publisher's page, like Reader view. After a sync: Wi-Fi only.")
                 }
 
                 Section {
@@ -89,7 +89,7 @@ struct SettingsView: View {
                             Button("Manage subscription") { showManageSubscription = true }
                         }
                     } else {
-                        Button("Folio Premium") { showPremium = true }
+                        Button("Paperwire Premium") { showPremium = true }
                     }
                 }
 
@@ -104,7 +104,7 @@ struct SettingsView: View {
                 Section("About") {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
                     Link("Source code", destination: URL(string: "https://github.com/Codebater/folio")!)
-                    Text("Folio's source code is public under the Functional Source License (FSL-1.1-ALv2); each version becomes Apache 2.0 two years after release. Articles belong to their publishers; Folio only shows what your own server syncs.")
+                    Text("Paperwire's source code is public under the Functional Source License (FSL-1.1-ALv2); each version becomes Apache 2.0 two years after release. Articles belong to their publishers; Paperwire only shows what your own server syncs.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }

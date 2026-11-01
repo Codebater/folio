@@ -16,7 +16,7 @@ struct VoiceLibraryView: View {
             if !listen.missingDefaults.isEmpty {
                 Section {
                     ForEach(listen.missingDefaults.keys.sorted(), id: \.self) { language in
-                        Label("Your \(VoiceText.language(language)) voice was removed from this iPhone. Folio uses \(listen.defaultVoice(for: language)?.name ?? "another voice") until you choose one.",
+                        Label("Your \(VoiceText.language(language)) voice was removed from this iPhone. Paperwire uses \(listen.defaultVoice(for: language)?.name ?? "another voice") until you choose one.",
                               systemImage: "exclamationmark.triangle")
                             .font(.footnote)
                             .foregroundStyle(.orange)
@@ -384,7 +384,7 @@ struct GetMoreVoicesView: View {
                     step(2, "Go to Accessibility › Read & Speak (on older iOS: Spoken Content).")
                     step(3, "Tap Voices, then choose a language, for example English, German, Spanish or Slovak.")
                     step(4, "Tap a voice marked Enhanced or Premium to download it.")
-                    step(5, "Come back to Folio. New voices appear in the library automatically.")
+                    step(5, "Come back to Paperwire. New voices appear in the library automatically.")
                 }
                 Section {
                     Text("Premium voices are about 100–500 MB each. Downloading over Wi-Fi is best.")
@@ -428,7 +428,7 @@ struct ListeningStyleView: View {
                 }
                 Toggle("Play the next article automatically", isOn: $listen.preferences.continuousPlayback)
             } footer: {
-                Text("Titles are read without the site's name tacked on, format tags like [Video], capitals or emoji, with a breath before the story. After a pause of more than 30 seconds, Folio picks up at the start of the sentence; after 10 minutes, at the start of the paragraph. Sentence by sentence adds a short breath between sentences.")
+                Text("Titles are read without the site's name tacked on, format tags like [Video], capitals or emoji, with a breath before the story. After a pause of more than 30 seconds, Paperwire picks up at the start of the sentence; after 10 minutes, at the start of the paragraph. Sentence by sentence adds a short breath between sentences.")
             }
             Section {
                 Picker("Highlight", selection: $listen.preferences.highlightStyle) {
@@ -438,7 +438,7 @@ struct ListeningStyleView: View {
             } header: {
                 Text("While listening")
             } footer: {
-                Text("The sentence being read is shaded and the word is marked on top. With voices that give no word timing, Folio reads sentence by sentence and shows the sentence.")
+                Text("The sentence being read is shaded and the word is marked on top. With voices that give no word timing, Paperwire reads sentence by sentence and shows the sentence.")
             }
             Section {
                 Picker("Language", selection: $listen.preferences.languageOverride) {
@@ -450,7 +450,7 @@ struct ListeningStyleView: View {
             } header: {
                 Text("Languages")
             } footer: {
-                Text("Folio reads each article in the language of its own text, guided by the language its feed usually uses. An English article quoting a long German paragraph reads that paragraph with your German voice; short passages and languages none of your feeds use keep the article's voice.")
+                Text("Paperwire reads each article in the language of its own text, guided by the language its feed usually uses. An English article quoting a long German paragraph reads that paragraph with your German voice; short passages and languages none of your feeds use keep the article's voice.")
             }
         }
         .navigationTitle("Listening style")

@@ -88,7 +88,7 @@ struct OnboardingView: View {
         VStack(spacing: 28) {
             Spacer()
             VStack(spacing: 14) {
-                Text("Folio")
+                Text("Paperwire")
                     .font(.system(size: 56, weight: .bold, design: .serif))
                 Text("Your feeds, set like a book.\nRead them, or listen with every word highlighted, even offline.")
                     .font(.system(.title3, design: .serif))
@@ -117,7 +117,7 @@ struct OnboardingView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.large)
                 .accessibilityIdentifier("try-demo")
-                Text("Self-hosting is always free. Folio never sends your articles anywhere.")
+                Text("Self-hosting is always free. Paperwire never sends your articles anywhere.")
                     .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .padding(.bottom, 24)
@@ -156,8 +156,8 @@ struct PremiumView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Folio Premium").font(.system(.largeTitle, design: .serif, weight: .bold))
-                        Text("Folio stays free for reading with every typeface, offline articles, FreshRSS, News Radio and listening with any Apple voice. Premium funds development and adds the extras.")
+                        Text("Paperwire Premium").font(.system(.largeTitle, design: .serif, weight: .bold))
+                        Text("Paperwire stays free for reading with every typeface, offline articles, FreshRSS, News Radio and listening with any Apple voice. Premium funds development and adds the extras.")
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 8)

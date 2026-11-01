@@ -78,7 +78,7 @@ public enum VoiceServerError: LocalizedError, Equatable {
         switch self {
         case .unreachable(let host): "Your voice server at \(host) didn't answer."
         case .http(let code, let body): "Your voice server answered with error \(code)\(body.isEmpty ? "" : ": \(body)")."
-        case .badResponse: "Your voice server sent something Folio couldn't read."
+        case .badResponse: "Your voice server sent something Paperwire couldn't read."
         }
     }
 }

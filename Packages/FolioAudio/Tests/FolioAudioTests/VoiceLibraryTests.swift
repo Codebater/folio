@@ -63,8 +63,8 @@ struct VoiceLibraryTests {
     @Test func voiceRegionsAndSamples() {
         #expect(voice("x", "X", "en-GB").region == "GB")
         #expect(voice("x", "X", "de").region == nil)
-        #expect(VoiceSamples.sentence(for: "sk-SK").hasPrefix("Takto znie Folio"))
-        #expect(VoiceSamples.sentence(for: "ja").hasPrefix("This is how Folio sounds"))
+        #expect(VoiceSamples.sentence(for: "sk-SK").hasPrefix("Takto znie Paperwire"))
+        #expect(VoiceSamples.sentence(for: "ja").hasPrefix("This is how Paperwire sounds"))
         #expect(VoiceTuning(pitch: 3, rate: 0.1) == VoiceTuning(pitch: 1.2, rate: 0.8))
     }
 }

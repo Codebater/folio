@@ -114,7 +114,7 @@ public final class PlaybackSession {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
             MPMediaItemPropertyArtist: feed,
-            MPMediaItemPropertyAlbumTitle: "Folio",
+            MPMediaItemPropertyAlbumTitle: "Paperwire",
             MPMediaItemPropertyPlaybackDuration: max(duration, 1),
             MPNowPlayingInfoPropertyElapsedPlaybackTime: min(max(elapsed, 0), max(duration, 1)),
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? rate : 0,

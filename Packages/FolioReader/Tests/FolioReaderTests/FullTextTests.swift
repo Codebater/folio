@@ -114,7 +114,7 @@ struct FullTextTests {
 
         let page = newsPage(body: "<article><p>\(paragraph)</p><p>\(paragraph)</p><p>\(paragraph)</p></article>")
         let fetcher = FullTextFetcher { request in
-            #expect(request.value(forHTTPHeaderField: "User-Agent")?.contains("Folio") == true)
+            #expect(request.value(forHTTPHeaderField: "User-Agent")?.contains("Paperwire") == true)
             return FullTextFetcher.Response(data: Data(page.utf8), status: 200, url: request.url, contentType: "text/html; charset=utf-8")
         }
         #expect(try await fetcher.fetch(base)?.wordCount ?? 0 > 90)
