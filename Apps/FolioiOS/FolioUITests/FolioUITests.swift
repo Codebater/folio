@@ -156,6 +156,21 @@ final class FolioUITests: XCTestCase {
         screenshot(app, "languages-settings")
     }
 
+    func testSettingsLinkThePrivacyPolicyTermsAndLicences() {
+        let app = launch()
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
+        app.buttons["Settings"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        let licences = app.buttons["licences"]
+        scrollTo(licences, in: app)
+        XCTAssertTrue(app.buttons["privacy-policy"].exists)
+        XCTAssertTrue(app.buttons["terms-of-use"].exists)
+        licences.tap()
+        XCTAssertTrue(app.navigationBars["Licences"].waitForExistence(timeout: 5))
+        app.buttons.containing(NSPredicate(format: "label CONTAINS 'Supertonic-3 voices'")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Attachment A'")).firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testHoldingTheMiniPlayerClosesNarration() {
         let app = launch()
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))

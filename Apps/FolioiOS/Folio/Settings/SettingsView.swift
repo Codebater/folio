@@ -124,11 +124,19 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("About") {
+                Section {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
-                    Link("Source code", destination: URL(string: "https://github.com/Codebater/folio")!)
-                    Text("Paperwire's source code is public under the Functional Source License (FSL-1.1-ALv2); each version becomes Apache 2.0 two years after release. Articles belong to their publishers; Paperwire only shows what your own server syncs.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                    Link("Privacy Policy", destination: LegalLinks.privacy)
+                        .accessibilityIdentifier("privacy-policy")
+                    Link("Terms of Use", destination: LegalLinks.terms)
+                        .accessibilityIdentifier("terms-of-use")
+                    NavigationLink("Licences") { LicencesView() }
+                        .accessibilityIdentifier("licences")
+                    Link("Source code", destination: LegalLinks.source)
+                } header: {
+                    Text("About")
+                } footer: {
+                    Text("Paperwire is made by GRAPHIQ STUDIO LLC. Its source code is public under the Functional Source License (FSL-1.1-ALv2); each version becomes Apache 2.0 two years after release. Articles belong to their publishers.")
                 }
             }
             .navigationTitle("Settings")

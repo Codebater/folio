@@ -204,7 +204,11 @@ struct PremiumView: View {
                     }
                     Button("Restore purchases") { Task { await entitlements.restore() } }
                 } footer: {
-                    Text("No trial, no auto-charge surprises. The yearly plan renews until you cancel it here or in your Apple account. Family Lifetime, or the upgrade for Lifetime owners, is shared with up to five family members through Family Sharing.")
+                    Text("Payment is charged to your Apple ID when you buy. The yearly plan renews automatically at the same price unless you cancel at least 24 hours before the year ends; manage or cancel it here or in Settings, under your name, then Subscriptions. Lifetime and Family Lifetime are one-time purchases. Family Lifetime, or the upgrade for Lifetime owners, is shared with up to five family members through Family Sharing.")
+                }
+                Section {
+                    Link("Terms of Use", destination: LegalLinks.terms)
+                    Link("Privacy Policy", destination: LegalLinks.privacy)
                 }
             }
             .navigationTitle("")
