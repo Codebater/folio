@@ -45,7 +45,8 @@ jobs:
             exit 0
           fi
           KEY="$RUNNER_TEMP/voices_key"
-          printf '%s\n' "$VOICES_DEPLOY_KEY" > "$KEY"
+          # A key pasted on Windows can carry a BOM or CRs; ssh rejects both.
+          printf '%s\n' "$VOICES_DEPLOY_KEY" | perl -pe 's/\r//g; s/^\xEF\xBB\xBF// if $. == 1' > "$KEY"
           chmod 600 "$KEY"
           GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
             git clone --depth 1 git@github.com:Codebater/folio-voices.git "$RUNNER_TEMP/folio-voices"
