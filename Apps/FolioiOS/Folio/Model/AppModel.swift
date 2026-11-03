@@ -6,6 +6,7 @@ import FolioReader
 import FolioAudio
 import FolioStorage
 import FolioSync
+import FolioFeeds
 
 /// An article opened for reading: the stored record plus its parsed document.
 struct LoadedArticle: Sendable {
@@ -70,6 +71,10 @@ final class AppModel {
 
     @ObservationIgnored private let credentials: any CredentialStore = KeychainCredentialStore()
     @ObservationIgnored private var syncEngine: SyncEngine?
+    /// Adds and removes feeds: the reading list on this iPhone, or FreshRSS.
+    @ObservationIgnored private var feedService: (any FeedSubscribing)?
+    @ObservationIgnored private var localFeeds: LocalFeedService?
+    static let localFeedsFile = ListenModel.folder("LocalFeeds", in: .applicationSupportDirectory).appendingPathComponent("feeds.json")
     @ObservationIgnored private var pushTask: Task<Void, Never>?
     @ObservationIgnored private var documents: [ArticleID: ArticleDocument] = [:]
     /// The same story from several feeds: each member maps to its group, the
@@ -150,10 +155,14 @@ final class AppModel {
 
     var isDemo: Bool { account == .demo }
 
+    /// Sources can be added here: on this iPhone, or on the FreshRSS server.
+    var canAddFeeds: Bool { account != nil && account != .demo }
+
     var accountTitle: String {
         switch account {
         case .demo: "Demo library"
         case .server(let config): "\(config.username) · \(config.endpoint.apiBase.host ?? "")"
+        case .local: "Reading list on this iPhone"
         case nil: "Not connected"
         }
     }
@@ -173,9 +182,13 @@ final class AppModel {
                 service = nil
                 syncStatus = .failed("Sign in again to keep syncing. Your downloaded articles are still here.")
             }
+        case .local:
+            service = LocalFeedService(stateURL: Self.localFeedsFile, transport: URLSessionTransport())
         case nil:
             service = nil
         }
+        localFeeds = service as? LocalFeedService
+        feedService = account == .demo ? nil : service as? any FeedSubscribing
         var options = SyncOptions()
         options.retention = reading.retentionDays > 0 ? TimeInterval(reading.retentionDays) * 86_400 : 100 * 365 * 86_400
         let processor = ArticleProcessor(languageGuesser: languageGuesser)
@@ -215,11 +228,79 @@ final class AppModel {
 
     func signOut() async {
         if case .server(let config) = account { try? credentials.removePassword(for: config.credentialKey) }
+        if account == .local { try? FileManager.default.removeItem(at: Self.localFeedsFile) }
         await resetLibrary()
         account = nil
         syncEngine = nil
         syncStatus = .idle
         Preferences.remove(.account)
+    }
+
+    /// Starts a reading list on this iPhone with the chosen sources: no
+    /// server and no account. Paperwire fetches the feeds itself.
+    func startReadingList(with feeds: [NewFeed]) async -> [String] {
+        if account != .local {
+            await resetLibrary()
+            try? FileManager.default.removeItem(at: Self.localFeedsFile)
+        }
+        account = .local
+        Preferences.save(StoredAccount.local, key: .account)
+        configureSync()
+        return await addFeeds(feeds)
+    }
+
+    /// A source to follow: its feed address, name and topic.
+    struct NewFeed: Sendable, Hashable {
+        var url: URL
+        var title: String?
+        var category: String?
+    }
+
+    /// Follows sources, then syncs so their stories arrive. Returns the
+    /// names of any that couldn't be added.
+    @discardableResult
+    func addFeeds(_ feeds: [NewFeed]) async -> [String] {
+        guard let feedService else { return feeds.map { $0.title ?? $0.url.host ?? $0.url.absoluteString } }
+        var failed: [String] = []
+        for feed in feeds {
+            do {
+                _ = try await feedService.subscribe(feedURL: feed.url, title: feed.title, category: feed.category)
+            } catch {
+                failed.append(feed.title ?? feed.url.host ?? feed.url.absoluteString)
+            }
+        }
+        await sync()
+        return failed
+    }
+
+    func removeFeed(_ id: FeedID) async {
+        do {
+            try await feedService?.unsubscribe(id)
+        } catch {
+            syncStatus = .failed("Couldn't remove the source: \(error)")
+            return
+        }
+        await sync()
+    }
+
+    /// Sources on this iPhone whose last check failed, and why.
+    func feedProblems() async -> [FeedID: String] {
+        guard let localFeeds else { return [:] }
+        var problems: [FeedID: String] = [:]
+        for feed in await localFeeds.feeds { if let error = feed.lastError { problems[feed.id] = error } }
+        return problems
+    }
+
+    /// Feed addresses already followed, compared without the scheme or a
+    /// trailing slash.
+    var followedFeedKeys: Set<String> { Set(feeds.compactMap { $0.feedURL.map(Self.feedKey) }) }
+
+    static func feedKey(_ url: URL) -> String {
+        var key = url.absoluteString.lowercased()
+        for prefix in ["https://", "http://"] where key.hasPrefix(prefix) { key.removeFirst(prefix.count) }
+        if key.hasPrefix("www.") { key.removeFirst(4) }
+        while key.hasSuffix("/") { key.removeLast() }
+        return key
     }
 
     private func resetLibrary() async {

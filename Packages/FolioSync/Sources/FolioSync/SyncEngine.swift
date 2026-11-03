@@ -133,6 +133,8 @@ public actor SyncEngine {
         let pushed = try await pushPendingChanges()
 
         progress?(.subscriptions)
+        // A reading list on this iPhone fetches its feeds first.
+        if let local = service as? any RefreshingReaderService { await local.refresh() }
         let (feeds, categories) = try await withRetry { try await self.service.subscriptions() }
         try await store.replaceSubscriptions(feeds: feeds, categories: categories)
 

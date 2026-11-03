@@ -31,6 +31,7 @@ let package = Package(
         .library(name: "FolioAudio", targets: ["FolioAudio"]),
         .library(name: "FolioStorage", targets: ["FolioStorage"]),
         .library(name: "FolioSync", targets: ["FolioSync"]),
+        .library(name: "FolioFeeds", targets: ["FolioFeeds"]),
         .executable(name: "folio-dev", targets: ["FolioDev"]),
     ],
     targets: [
@@ -68,6 +69,11 @@ let package = Package(
             dependencies: ["FolioCore", "FolioFreshRSS", "FolioReader", "FolioStorage"],
             path: "Packages/FolioSync/Sources/FolioSync"
         ),
+        .target(
+            name: "FolioFeeds",
+            dependencies: ["FolioCore", "FolioFreshRSS"],
+            path: "Packages/FolioFeeds/Sources/FolioFeeds"
+        ),
         .executableTarget(
             name: "FolioDev",
             dependencies: ["FolioCore", "FolioFreshRSS", "FolioReader", "FolioAudio", "FolioStorage", "FolioSync"],
@@ -103,6 +109,11 @@ let package = Package(
             name: "FolioSyncTests",
             dependencies: ["FolioSync"],
             path: "Packages/FolioSync/Tests/FolioSyncTests"
+        ),
+        .testTarget(
+            name: "FolioFeedsTests",
+            dependencies: ["FolioFeeds", "FolioFreshRSS", "FolioSync", "FolioStorage"],
+            path: "Packages/FolioFeeds/Tests/FolioFeedsTests"
         ),
         .testTarget(
             name: "FolioIntegrationTests",

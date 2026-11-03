@@ -117,6 +117,18 @@ struct ClientTests {
         #expect(await server.requestLog.last?.headers["Authorization"]?.hasPrefix("GoogleLogin auth=") == true)
     }
 
+    @Test func addsAndRemovesFeedsOnTheServer() async throws {
+        let server = InMemoryReaderServer()
+        let c = client(server)
+        let before = try await c.subscriptions().feeds.count
+        let id = try await c.subscribe(feedURL: URL(string: "https://www.dezeen.com/feed/")!, title: "Dezeen", category: "Design")
+        let added = try #require(try await c.subscriptions().feeds.first { $0.id == id })
+        #expect(added.title == "Dezeen")
+        #expect(added.categoryIDs == [CategoryID(StreamID.label("Design"))])
+        try await c.unsubscribe(id)
+        #expect(try await c.subscriptions().feeds.count == before)
+    }
+
     @Test func rejectsWrongPassword() async {
         let server = InMemoryReaderServer()
         await #expect(throws: GoogleReaderError.invalidCredentials) {

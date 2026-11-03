@@ -75,6 +75,26 @@ final class FolioUITests: XCTestCase {
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
     }
 
+    func testNewReadersCanPickPopularSources() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-reset"]
+        app.launch()
+        XCTAssertTrue(app.buttons["choose-feeds"].waitForExistence(timeout: 10))
+        app.buttons["choose-feeds"].tap()
+        let start = app.buttons["start-reading"]
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertFalse(start.isEnabled)  // nothing picked yet
+        app.buttons["pack-The world today"].tap()
+        XCTAssertTrue(start.isEnabled)
+        XCTAssertTrue(start.label.contains("4 sources"))
+        screenshot(app, "feed-picker")
+        let hackerNews = app.buttons["feed-Hacker News"]
+        scrollTo(hackerNews, in: app)
+        hackerNews.tap()
+        XCTAssertTrue(start.label.contains("5 sources"))
+        screenshot(app, "feed-picker-topics")
+    }
+
     func testDemoReaderAndAppearance() {
         let app = launch()
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))

@@ -13,20 +13,36 @@ struct SettingsView: View {
     @State private var showPremium = false
     @State private var showManageSubscription = false
     @State private var confirmSignOut = false
+    @State private var showPicker = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Account") {
-                    LabeledContent("Connected to", value: model.accountTitle)
+                    LabeledContent(model.account == .local ? "Library" : "Connected to", value: model.accountTitle)
                     LabeledContent("Status") { SyncStatusLabel().font(.footnote) }
                     Button("Sync now") { Task { await model.sync() } }
                     if model.isDemo {
+                        Button("Choose what to read") { showPicker = true }
                         Button("Connect your FreshRSS server") { showConnect = true }
+                    } else if model.account == .local {
+                        Button("Use a FreshRSS server instead") { showConnect = true }
                     } else {
                         Button("Change server or account") { showConnect = true }
                     }
-                    Button("Sign out", role: .destructive) { confirmSignOut = true }
+                    Button(model.account == .local ? "Remove reading list" : "Sign out", role: .destructive) { confirmSignOut = true }
+                }
+
+                if model.canAddFeeds {
+                    Section {
+                        NavigationLink {
+                            SourcesView()
+                        } label: {
+                            SettingsRow(icon: "dot.radiowaves.up.forward", title: "Sources",
+                                        subtitle: "\(model.feeds.count) \(model.feeds.count == 1 ? "source" : "sources") · add popular ones or any website")
+                        }
+                        .accessibilityIdentifier("sources")
+                    }
                 }
 
                 Section {
@@ -118,11 +134,14 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(isPresented: $showConnect) { ConnectServerView() }
+            .sheet(isPresented: $showPicker) { FeedPickerView(mode: .start) }
             .sheet(isPresented: $showPremium) { PremiumView() }
             .manageSubscriptionsSheet(isPresented: $showManageSubscription)
-            .confirmationDialog("Sign out and remove all synced articles from this iPhone?", isPresented: $confirmSignOut,
-                                titleVisibility: .visible) {
-                Button("Sign out", role: .destructive) {
+            .confirmationDialog(model.account == .local
+                                ? "Remove your reading list, its sources and stories from this iPhone?"
+                                : "Sign out and remove all synced articles from this iPhone?",
+                                isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button(model.account == .local ? "Remove reading list" : "Sign out", role: .destructive) {
                     Task {
                         await model.signOut()
                         dismiss()

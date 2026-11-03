@@ -37,4 +37,6 @@ enum Preferences {
 enum StoredAccount: Codable, Equatable {
     case demo
     case server(AccountConfiguration)
+    /// A reading list on this iPhone: Paperwire fetches the feeds itself.
+    case local
 }

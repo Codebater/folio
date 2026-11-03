@@ -148,6 +148,28 @@ public actor InMemoryReaderServer: HTTPTransport {
                 articles[id] = article
             }
             return text(200, "OK")
+        case "reader/api/0/subscription/quickadd":
+            guard checkActionToken(one("T")), let address = one("quickadd"), let url = URL(string: address) else { return text(400, "Bad request") }
+            let id = "feed/\(feeds.count + 100)"
+            feeds.append(SeedFeed(id: id, title: url.host ?? address, url: address, htmlUrl: address, categories: []))
+            return json(["numResults": 1, "query": address, "streamId": id, "streamName": url.host ?? address])
+        case "reader/api/0/subscription/edit":
+            guard checkActionToken(one("T")), let id = one("s"), let index = feeds.firstIndex(where: { $0.id == id }) else {
+                return text(400, "Bad request")
+            }
+            switch one("ac") {
+            case "unsubscribe":
+                feeds.remove(at: index)
+            default:
+                if let title = one("t") { feeds[index].title = title }
+                for label in all("a") where !feeds[index].categories.contains(label) {
+                    feeds[index].categories.append(label)
+                    if !categories.contains(where: { $0.id == label }) {
+                        categories.append(SeedCategory(id: label, label: String(label.split(separator: "/").last ?? "")))
+                    }
+                }
+            }
+            return text(200, "OK")
         case "reader/api/0/mark-all-as-read":
             guard checkActionToken(one("T")) else { return unauthorized() }
             let stream = one("s") ?? StreamID.readingList

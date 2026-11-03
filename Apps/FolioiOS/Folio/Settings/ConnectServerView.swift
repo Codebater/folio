@@ -82,6 +82,7 @@ struct ConnectServerView: View {
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var showConnect = false
+    @State private var showPicker = false
     @State private var isLoadingDemo = false
 
     var body: some View {
@@ -98,11 +99,19 @@ struct OnboardingView: View {
             Spacer()
             VStack(spacing: 12) {
                 Button {
-                    showConnect = true
+                    showPicker = true
                 } label: {
-                    Text("Connect FreshRSS").frame(maxWidth: .infinity)
+                    Text("Choose what to read").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .accessibilityIdentifier("choose-feeds")
+                Button {
+                    showConnect = true
+                } label: {
+                    Text("I use FreshRSS").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
                 .controlSize(.large)
                 Button {
                     isLoadingDemo = true
@@ -114,10 +123,10 @@ struct OnboardingView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderless)
                 .controlSize(.large)
                 .accessibilityIdentifier("try-demo")
-                Text("Self-hosting is always free. Paperwire never sends your articles anywhere.")
+                Text("No account needed. Paperwire never sends your articles anywhere.")
                     .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .padding(.bottom, 24)
@@ -125,6 +134,7 @@ struct OnboardingView: View {
         .padding(.horizontal, 28)
         .background(Color("LaunchBackground").ignoresSafeArea())
         .sheet(isPresented: $showConnect) { ConnectServerView() }
+        .fullScreenCover(isPresented: $showPicker) { FeedPickerView(mode: .start) }
     }
 }
 

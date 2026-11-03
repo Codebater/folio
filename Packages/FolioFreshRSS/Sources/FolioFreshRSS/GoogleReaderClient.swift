@@ -17,13 +17,26 @@ public protocol ReaderService: Sendable {
     func markAllAsRead(stream: String, olderThan: Date) async throws(GoogleReaderError)
 }
 
+/// Adding and removing feeds, for services that let the app do it.
+public protocol FeedSubscribing: Sendable {
+    /// Follows the feed at `feedURL`, filed under `category` (a topic label).
+    func subscribe(feedURL: URL, title: String?, category: String?) async throws(GoogleReaderError) -> FeedID
+    func unsubscribe(_ feed: FeedID) async throws(GoogleReaderError)
+}
+
+/// A service that fetches its feeds itself, on this device, instead of
+/// asking a server. Sync lets it fetch before asking for anything.
+public protocol RefreshingReaderService: ReaderService {
+    func refresh() async
+}
+
 /// Google Reader API client for FreshRSS (and other compatible servers).
 ///
 /// Auth flow: `accounts/ClientLogin` trades username + API password for an
 /// `Auth` token sent as `Authorization: GoogleLogin auth=<token>`. Write calls
 /// also need the short-lived action token `T` from `reader/api/0/token`.
 /// Both are cached in memory only; a 401 triggers one fresh login.
-public actor GoogleReaderClient: ReaderService {
+public actor GoogleReaderClient: ReaderService, FeedSubscribing {
     public let endpoint: ServerEndpoint
     private let credentials: Credentials
     private let transport: HTTPTransport
@@ -206,6 +219,34 @@ public actor GoogleReaderClient: ReaderService {
         form.append("s", stream)
         form.append("ts", String(Int64(olderThan.timeIntervalSince1970 * 1_000_000)))
         _ = try await post("reader/api/0/mark-all-as-read", form: form, needsActionToken: true)
+    }
+
+    // MARK: Subscriptions
+
+    /// FreshRSS fetches the feed itself when it's added.
+    public func subscribe(feedURL: URL, title: String?, category: String?) async throws(GoogleReaderError) -> FeedID {
+        var form = FormBody()
+        form.append("quickadd", feedURL.absoluteString)
+        let response = try await post("reader/api/0/subscription/quickadd", form: form, needsActionToken: true)
+        guard let json = try? JSONSerialization.jsonObject(with: response.body) as? [String: Any],
+              let stream = json["streamId"] as? String, !stream.isEmpty
+        else { throw .malformedResponse("the server couldn't add this feed") }
+        if title != nil || category != nil {
+            var edit = FormBody()
+            edit.append("ac", "edit")
+            edit.append("s", stream)
+            if let title { edit.append("t", title) }
+            if let category { edit.append("a", StreamID.label(category)) }
+            _ = try await post("reader/api/0/subscription/edit", form: edit, needsActionToken: true)
+        }
+        return FeedID(stream)
+    }
+
+    public func unsubscribe(_ feed: FeedID) async throws(GoogleReaderError) {
+        var form = FormBody()
+        form.append("ac", "unsubscribe")
+        form.append("s", feed.rawValue)
+        _ = try await post("reader/api/0/subscription/edit", form: form, needsActionToken: true)
     }
 
     // MARK: Plumbing

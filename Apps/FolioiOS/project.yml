@@ -51,6 +51,8 @@ targets:
         product: FolioStorage
       - package: FolioKit
         product: FolioSync
+      - package: FolioKit
+        product: FolioFeeds
       - package: FolioNeural
         product: FolioNeural
     info:
