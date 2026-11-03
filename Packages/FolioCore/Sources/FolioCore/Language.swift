@@ -77,9 +77,17 @@ public enum ArticleLanguage {
             && parts.last!.prefix { $0.isLetter }.count >= 2
     }
 
-    /// The language to narrate in, from the ones the reader has turned on
-    /// (main first). Anything else, which is usually a wrong guess, is read
-    /// in the main language. An empty list allows every language.
+    /// The languages narration recognises and speaks, main first: the ones
+    /// the reader turned on, then every tuned language. Paperwire has natural
+    /// voices and reading rules for those, so a German article is read in
+    /// German even when only English and Slovak are on.
+    public static func spoken(_ readAloud: [String]) -> [String] {
+        (readAloud + LanguageCode.tuned.map(\.base)).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+    }
+
+    /// The language to narrate in, from the ones narration speaks (main
+    /// first). Anything else, which is usually a wrong guess, is read in the
+    /// main language. An empty list allows every language.
     public static func narrated(_ language: LanguageCode?, allowed: [String]) -> LanguageCode? {
         guard !allowed.isEmpty else { return language }
         if let language, allowed.contains(language.base) { return language }

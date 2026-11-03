@@ -34,6 +34,21 @@ struct ReadAloudLanguageTests {
         #expect(SpeechScript.build(document: long, title: nil, options: options, languageGuesser: FrenchGuesser()).language == .french)
     }
 
+    @Test func tunedLanguagesAreAlwaysReadInTheirOwnLanguage() {
+        #expect(ArticleLanguage.spoken(["en", "sk"]) == ["en", "sk", "de", "es", "cs"])
+        #expect(ArticleLanguage.spoken(["fr"]).first == "fr")
+        let sentence = "Die Stadt hat am Donnerstag einen neuen Haushalt für das nächste Jahr beschlossen, und der Rat ist zufrieden."
+        let german = ArticleParser.parse(html: "<p>" + Array(repeating: sentence, count: 4).joined(separator: " ") + "</p>")
+        var options = SpeechScriptOptions(includeTitle: false, language: nil, feedLanguage: .english, defaultLanguage: .english)
+        options.readAloudLanguages = ArticleLanguage.spoken(["en", "sk"])
+        let script = SpeechScript.build(document: german, title: nil, options: options)
+        #expect(script.language == .german)
+        #expect(script.segments.allSatisfy { $0.language?.base == "de" })
+        // Before: only the languages turned on, so a German article came out in English.
+        options.readAloudLanguages = ["en", "sk"]
+        #expect(SpeechScript.build(document: german, title: nil, options: options).language == .english)
+    }
+
     @Test func paragraphsSwitchOnlyToLanguagesThatAreOn() {
         let english = Array(repeating: "The council met again on Tuesday to talk about the budget.", count: 6).joined(separator: " ")
         let other = Array(repeating: "Le conseil s'est réuni mardi pour parler du budget de la ville.", count: 3).joined(separator: " ")

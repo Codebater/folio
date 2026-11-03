@@ -31,6 +31,8 @@ struct ListenPreferences: Codable, Equatable {
     var includeTitle = true
     /// Say the feed's name before the title ("The Margin. Why …").
     var announceSource = true
+    /// After an article: "That was an article from …. Coming up next: …".
+    var announceOutro = true
     var paragraphPause: Double = 0.35
     /// Voice identifier per base language, e.g. "de" → a German voice.
     var voiceByLanguage: [String: String] = [:]
@@ -71,6 +73,7 @@ struct ListenPreferences: Codable, Equatable {
         granularity = try c.decodeIfPresent(SpeechScriptOptions.Granularity.self, forKey: .granularity) ?? defaults.granularity
         includeTitle = try c.decodeIfPresent(Bool.self, forKey: .includeTitle) ?? defaults.includeTitle
         announceSource = try c.decodeIfPresent(Bool.self, forKey: .announceSource) ?? defaults.announceSource
+        announceOutro = try c.decodeIfPresent(Bool.self, forKey: .announceOutro) ?? defaults.announceOutro
         paragraphPause = try c.decodeIfPresent(Double.self, forKey: .paragraphPause) ?? defaults.paragraphPause
         voiceByLanguage = try c.decodeIfPresent([String: String].self, forKey: .voiceByLanguage) ?? [:]
         languageOverride = try c.decodeIfPresent(String.self, forKey: .languageOverride)
@@ -274,8 +277,20 @@ final class ListenModel {
         return app?.automaticReadAloudLanguages ?? ["en"]
     }
 
-    /// Stations start in it, and anything in a language that's off is read in it.
+    /// Stations start in it, and anything in a language narration doesn't speak is read in it.
     var mainLanguage: LanguageCode { LanguageCode(readAloudLanguages.first ?? "en") }
+
+    /// The languages narration recognises and speaks, main first: the ones
+    /// turned on, plus English, German, Spanish, Slovak and Czech, which are
+    /// always read in their own language.
+    var spokenLanguages: [String] { ArticleLanguage.spoken(readAloudLanguages) }
+
+    /// Spoken languages worth listing: the ones turned on, and tuned ones the
+    /// library has articles in (no Czech row for a reader without Czech news).
+    var activeLanguages: [String] {
+        let library = app?.libraryLanguages ?? []
+        return spokenLanguages.filter { readAloudLanguages.contains($0) || library.contains($0) }
+    }
 
     /// `detected` is the sync-time guess; the script checks it against the
     /// article's own text. Only the user's override forces a language.
@@ -288,7 +303,7 @@ final class ListenModel {
             switchLanguagePerParagraph: preferences.languageOverride == nil && preferences.switchLanguagePerParagraph,
             announceSource: preferences.announceSource, detectedLanguage: detected,
             defaultLanguage: mainLanguage)
-        options.readAloudLanguages = readAloudLanguages
+        options.readAloudLanguages = spokenLanguages
         return options
     }
 

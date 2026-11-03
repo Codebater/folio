@@ -643,6 +643,11 @@ final class AppModel {
             options.switchLanguagePerParagraph = false
         }
         let (before, after) = bulletin?.announcements(for: id) ?? ([], [])
+        if bulletin == nil, listen.preferences.announceOutro {
+            // What plays next once this one ends: the queue's first other article.
+            let next = listen.preferences.continuousPlayback ? listen.upNext.first(where: { $0.id != id }) : nil
+            options.outro = SpeechOutro(source: options.sourceName, nextTitle: next?.title, nextSource: next?.feedTitle)
+        }
         let guesser = narrationGuesser(feedID: feedID)
         var script = SpeechScript.build(document: loaded.document, title: loaded.stored.article.title, articleID: id,
                                         options: options, languageGuesser: guesser,
@@ -652,6 +657,9 @@ final class AppModel {
             // Short neighbours share a call, so the voice joins them itself.
             // 64 leaves room within Supertonic's 70-character piece on the phone.
             options.packSentences = 64
+            // Supertonic reads digits badly outside English ("2026" in a Slovak
+            // article came out in no language at all); words are read natively.
+            options.pronunciation.spellNumbers = true
             script = SpeechScript.build(document: loaded.document, title: loaded.stored.article.title, articleID: id,
                                         options: options, languageGuesser: guesser,
                                         announcementsBefore: before, announcementsAfter: after)
@@ -659,26 +667,27 @@ final class AppModel {
         return script
     }
 
-    /// Languages narration may use: the ones the reader has turned on, and
-    /// a language they force in Settings › Languages.
+    /// Languages narration may use: the ones the reader has turned on, the
+    /// tuned ones (always read in their own language), and a language they
+    /// force in Settings › Languages.
     private var narrationLanguages: Set<String> {
-        var languages = Set(listen.readAloudLanguages)
+        var languages = Set(listen.spokenLanguages)
         if let forced = listen.preferences.languageOverride { languages.insert(LanguageCode(forced).base) }
         return languages
     }
 
-    /// Language identification for narration: only the languages that are
-    /// on can come out, tipped towards the feed's usual one.
+    /// Language identification for narration: only spoken languages can come
+    /// out, tipped towards the feed's usual one.
     private func narrationGuesser(feedID: FeedID) -> NaturalLanguageGuesser {
         NaturalLanguageGuesser(constraints: narrationLanguages,
-                               hint: ArticleLanguage.permitted(feedLanguages[feedID], allowed: listen.readAloudLanguages))
+                               hint: ArticleLanguage.permitted(feedLanguages[feedID], allowed: listen.spokenLanguages))
     }
 
     /// The language an article is read in, from its own text where possible.
     /// `prior` (a station section's language) stands in for the feed's.
     func articleLanguage(_ loaded: LoadedArticle, prior: LanguageCode? = nil) -> LanguageCode? {
         let feedID = loaded.stored.article.feedID
-        let allowed = listen.readAloudLanguages
+        let allowed = listen.spokenLanguages
         let sample = loaded.document.blocks.filter(\.isSpeakable).map(\.text).joined(separator: " ").prefix(3000)
         let resolved = ArticleLanguage.resolve(
             text: String(sample), guesser: narrationGuesser(feedID: feedID),
@@ -689,9 +698,9 @@ final class AppModel {
 
     /// The language to plan a station with, before the article's text is
     /// loaded: a long article's own guess, otherwise its feed's usual one,
-    /// otherwise the main language. Only languages that are on.
+    /// otherwise the main language. Only spoken languages.
     func plannedLanguage(feedID: FeedID, guess: LanguageCode?, wordCount: Int) -> LanguageCode? {
-        let allowed = listen.readAloudLanguages
+        let allowed = listen.spokenLanguages
         let guess = ArticleLanguage.permitted(guess, allowed: allowed)
         if wordCount >= ArticleLanguage.decisiveWords, let guess { return guess }
         return ArticleLanguage.narrated(ArticleLanguage.permitted(feedLanguages[feedID], allowed: allowed) ?? guess, allowed: allowed)

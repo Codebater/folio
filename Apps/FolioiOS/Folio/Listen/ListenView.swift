@@ -89,7 +89,7 @@ struct ListenView: View {
             Text("Up Next is replaced by this station.")
         }
         .task(id: [AnyHashable(model.revision), AnyHashable(listen.preferences.radioFilters), AnyHashable(listen.preferences.rate),
-                   AnyHashable(listen.readAloudLanguages)]) {
+                   AnyHashable(listen.activeLanguages)]) {
             let result = await listen.lineup()
             lineup = result.lineup
             images = result.images
@@ -985,7 +985,7 @@ struct BulletinBuilderView: View {
 
     /// The languages read aloud: a story in any other is read in the main one.
     private var languages: [(code: String, name: String)] {
-        listen.readAloudLanguages.map { ($0, VoiceText.language($0)) }
+        listen.activeLanguages.map { ($0, VoiceText.language($0)) }
     }
 
     var body: some View {

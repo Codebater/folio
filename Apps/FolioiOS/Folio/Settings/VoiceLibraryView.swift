@@ -431,6 +431,7 @@ struct ListeningStyleView: View {
                     Slider(value: $listen.preferences.paragraphPause, in: 0...1.5, step: 0.05)
                 }
                 Toggle("Play the next article automatically", isOn: $listen.preferences.continuousPlayback)
+                Toggle("Say where it was from and what's next", isOn: $listen.preferences.announceOutro)
             } footer: {
                 Text("Titles are read without the site's name tacked on, format tags like [Video], capitals or emoji, with a breath before the story. After a pause of more than 30 seconds, Paperwire picks up at the start of the sentence; after 10 minutes, at the start of the paragraph. Sentence by sentence adds a short breath between sentences.")
             }

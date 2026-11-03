@@ -62,10 +62,14 @@ public struct PronunciationEntry: Hashable, Sendable, Codable, Identifiable {
 public struct PronunciationRules: Sendable {
     public var userEntries: [PronunciationEntry]
     public var readURLsAsHost: Bool
+    /// Numbers, dates and times as words outside English (`NumberWording`),
+    /// for natural voices that read digits badly. Apple voices don't need it.
+    public var spellNumbers: Bool
 
-    public init(userEntries: [PronunciationEntry] = [], readURLsAsHost: Bool = true) {
+    public init(userEntries: [PronunciationEntry] = [], readURLsAsHost: Bool = true, spellNumbers: Bool = false) {
         self.userEntries = userEntries
         self.readURLsAsHost = readURLsAsHost
+        self.spellNumbers = spellNumbers
     }
 
     static let abbreviations: [String: [(String, String)]] = [
@@ -113,7 +117,8 @@ public struct PronunciationRules: Sendable {
         }
         edits += dottedAcronyms(units)
         if readURLsAsHost { edits += urls(units) }
-        edits += SymbolWording.edits(for: text, language: language)
+        edits += SymbolWording.edits(for: text, language: language, spellNumbers: spellNumbers)
+        if spellNumbers { edits += NumberWording.edits(for: text, language: language) }
 
         return Self.resolve(edits)
     }
@@ -297,7 +302,7 @@ enum SymbolWording {
     // "#WWDC" → "WWDC"; "C#" and "#1" stay.
     static let hashtag = try! NSRegularExpression(pattern: "(?<![\\p{L}\\p{N}&#])#(?=\\p{L})")
 
-    static func edits(for text: String, language: LanguageCode?) -> [PronunciationEdit] {
+    static func edits(for text: String, language: LanguageCode?, spellNumbers: Bool = false) -> [PronunciationEdit] {
         let ns = text as NSString
         let whole = NSRange(location: 0, length: ns.length)
         func edit(_ r: NSRange, _ replacement: String) -> PronunciationEdit {
@@ -309,7 +314,11 @@ enum SymbolWording {
             let symbol = ns.substring(with: match.range(at: 1)).uppercased()
             let suffix = ns.substring(with: match.range(at: 3)).lowercased()
             guard let magnitude = wording.magnitudes[suffix], let currency = wording.currencies[symbol] else { continue }
-            let amount = ns.substring(with: match.range(at: 2))
+            var amount = ns.substring(with: match.range(at: 2))
+            if spellNumbers, let base = language?.base, let speller = NumberWording.spellers[base],
+               let number = NumberWording.parse(amount), let words = speller.number(number, nextIsWord: true) {
+                amount = words
+            }
             edits.append(edit(match.range, "\(amount) \(magnitude)\(wording.currencyJoiner[magnitude] ?? "") \(currency)"))
         }
         edits += range.matches(in: text, range: whole).map { edit($0.range, " \(wording.range) ") }
