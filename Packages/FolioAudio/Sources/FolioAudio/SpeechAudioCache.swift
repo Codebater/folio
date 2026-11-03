@@ -113,14 +113,34 @@ public enum NeuralVoiceCatalog {
         public var hasWordTimings: Bool { self == .kokoro }
     }
 
+    /// A voice's studio tone while it plays: low-end lift, a little less
+    /// boxiness around 450 Hz, and air on top, in dB. Measured against the
+    /// voice it was built from (folio-notes, "Ivy Voice Builder").
+    public struct Tone: Hashable, Sendable {
+        public var lowDB: Float
+        public var midDB: Float
+        public var airDB: Float
+
+        public init(lowDB: Float, midDB: Float, airDB: Float) {
+            self.lowDB = lowDB
+            self.midDB = midDB
+            self.airDB = airDB
+        }
+    }
+
     public struct Voice: Hashable, Sendable {
         public var id: String
         public var model: Model
-        /// The model's own voice name ("af_heart", "F1").
+        /// The model's own voice name ("af_heart", "F1"), or our style's file name.
         public var modelVoice: String
         public var language: String
         public var name: String
         public var gender: SpeechVoice.Gender
+        /// Our own Ivy-family style: its file ships inside the app (added at
+        /// build time from a private repository) instead of downloading with
+        /// the model. Builds without the file don't offer the voice.
+        public var bundledStyle = false
+        public var tone: Tone?
     }
 
     public static func isNeural(_ id: String) -> Bool { id.hasPrefix(prefix) }
@@ -151,6 +171,9 @@ public enum NeuralVoiceCatalog {
             ("F1", "Ivy", .female), ("F2", "Nora", .female), ("M1", "Leo", .male), ("M2", "Max", .male),
         ]
         let supertonicLanguages = ["cs-CZ", "sk-SK", "de-DE", "en-US", "es-ES"]
+        // Our own Ivy-family voices (Ivy Voice Builder), each from an original
+        // designed voice, never a real person's. Tones: folio-notes/listening/2026-11-03-builder.
+        let ours: [(String, String, SpeechVoice.Gender, Tone)] = ourStyles
         let paradee: [(String, String, String, SpeechVoice.Gender)] = [
             ("af_heart", "Heart Lite", "en-US", .female), ("am_puck", "Puck", "en-US", .male),
             ("bf_isabella", "Isabella", "en-GB", .female), ("bm_fable", "Fable", "en-GB", .male),
@@ -162,14 +185,35 @@ public enum NeuralVoiceCatalog {
                           modelVoice: style.0, language: language, name: style.1, gender: style.2)
                 }
             }
+            + supertonicLanguages.flatMap { language in
+                ours.map { style in
+                    Voice(id: "\(prefix)supertonic.\(style.0).\(LanguageCode(language).base)", model: .supertonic,
+                          modelVoice: style.0, language: language, name: style.1, gender: style.2,
+                          bundledStyle: true, tone: style.3)
+                }
+            }
             + paradee.map { Voice(id: prefix + "paradee." + $0.0, model: .paradee, modelVoice: $0.0, language: $0.2, name: $0.1, gender: $0.3) }
     }()
 
+    /// Our own Ivy-family styles: file name, display name, gender, studio tone.
+    /// Low-end lifts are measured against each voice's designed target, never
+    /// cuts; Orion's full tone against the reference qualities we chose.
+    static let ourStyles: [(String, String, SpeechVoice.Gender, Tone)] = [
+        ("orion", "Orion", .male, Tone(lowDB: 1, midDB: 0, airDB: 4)),
+        ("atlas", "Atlas", .male, Tone(lowDB: 3.5, midDB: 0, airDB: 0)),
+        ("vera", "Vera", .female, Tone(lowDB: 0, midDB: 0, airDB: 0)),
+        ("clara", "Clara", .female, Tone(lowDB: 2, midDB: 0, airDB: 0)),
+        ("rowan", "Rowan", .male, Tone(lowDB: 0, midDB: 0, airDB: 0)),
+        ("aurora", "Aurora", .female, Tone(lowDB: 0, midDB: 0, airDB: 0)),
+        ("theo", "Theo", .male, Tone(lowDB: 4, midDB: 0, airDB: 0)),
+    ]
+
     public static func voice(_ id: String) -> Voice? { all.first { $0.id == id } }
 
-    /// Voice Library entries; `installed` says which models are downloaded.
-    public static func speechVoices(installed: Set<Model>) -> [SpeechVoice] {
-        all.map { voice in
+    /// Voice Library entries; `installed` says which models are downloaded,
+    /// `bundledStyles` which of our own styles this build carries (others are left out).
+    public static func speechVoices(installed: Set<Model>, bundledStyles: Set<String> = []) -> [SpeechVoice] {
+        all.filter { !$0.bundledStyle || bundledStyles.contains($0.modelVoice) }.map { voice in
             SpeechVoice(id: voice.id, name: voice.name, language: voice.language, quality: .neural, engineID: engineID,
                         isInstalled: installed.contains(voice.model), gender: voice.gender)
         }

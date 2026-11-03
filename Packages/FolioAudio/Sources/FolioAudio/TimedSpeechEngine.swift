@@ -35,6 +35,13 @@ public protocol SpeechAudioOutput: AnyObject {
     var currentTime: Double? { get }
     /// True once the current clip has played to its end.
     var isFinished: Bool { get }
+    /// Called before each clip with the voice that rendered it, so the output
+    /// can give that voice its sound (room, tone).
+    func prepare(voiceID: String)
+}
+
+public extension SpeechAudioOutput {
+    func prepare(voiceID: String) {}
 }
 
 /// Narration from pre-rendered audio with word timings.
@@ -226,6 +233,7 @@ public final class TimedSpeechEngine: SpeechEngine {
                 startTime = speech.duration * Double(offset) / Double(max(text.utf16Length, 1))
             }
         }
+        if let voiceID = voice(for: script.segments[segment]) { output.prepare(voiceID: voiceID) }
         do {
             try output.play(speech.audio, from: startTime, rate: rate.multiplier)
         } catch {

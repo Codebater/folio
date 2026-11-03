@@ -435,6 +435,14 @@ struct ListeningStyleView: View {
                 Text("Titles are read without the site's name tacked on, format tags like [Video], capitals or emoji, with a breath before the story. After a pause of more than 30 seconds, Paperwire picks up at the start of the sentence; after 10 minutes, at the start of the paragraph. Sentence by sentence adds a short breath between sentences.")
             }
             Section {
+                Toggle("Room", isOn: $listen.preferences.room)
+                    .accessibilityIdentifier("natural-voice-room")
+            } header: {
+                Text("Natural voices")
+            } footer: {
+                Text("Natural voices are read in a small, quiet room, so words ring out softly instead of stopping dead between sentences. Turn it off for a completely dry voice.")
+            }
+            Section {
                 Picker("Highlight", selection: $listen.preferences.highlightStyle) {
                     ForEach(NarrationHighlightStyle.allCases) { Text($0.label).tag($0) }
                 }

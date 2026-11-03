@@ -60,6 +60,20 @@ struct VoiceLibraryTests {
         #expect(VoiceLibrary.touch("z", in: Array(repeating: "x", count: 1) + (1...20).map(String.init), limit: 3) == ["z", "x", "1"])
     }
 
+    @Test func ourVoicesAppearOnlyWhenTheBuildCarriesTheirStyle() {
+        // Our Ivy-family styles ship inside the app; a build without the file
+        // (a fork, the public CI) doesn't offer the voice at all.
+        let without = NeuralVoiceCatalog.speechVoices(installed: [.supertonic])
+        #expect(!without.contains { $0.id == "neural.supertonic.orion.en" })
+        #expect(without.contains { $0.id == "neural.supertonic.F1.cs" })
+        let with = NeuralVoiceCatalog.speechVoices(installed: [.supertonic], bundledStyles: ["orion"])
+        #expect(with.filter { $0.id.hasPrefix("neural.supertonic.orion.") }.count == 5)
+        #expect(!with.contains { $0.id == "neural.supertonic.atlas.en" })
+        // Each speaks Ivy's five languages, and Ivy stays the included voice.
+        #expect(NeuralVoiceCatalog.voice("neural.supertonic.atlas.sk")?.tone?.lowDB == 3.5)
+        #expect(!NeuralVoiceCatalog.isIncluded("neural.supertonic.orion.en"))
+    }
+
     @Test func voiceRegionsAndSamples() {
         #expect(voice("x", "X", "en-GB").region == "GB")
         #expect(voice("x", "X", "de").region == nil)

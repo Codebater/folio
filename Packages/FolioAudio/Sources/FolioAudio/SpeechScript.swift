@@ -104,6 +104,12 @@ public struct SpeechScriptOptions: Sendable {
     /// The article's author, read in the byline after the title ("The
     /// Margin, by Mara Ellison.") when the source is announced.
     public var authorName: String?
+    /// Sentence mode only: neighbouring sentences share one segment while
+    /// together they stay within this many UTF-16 units, so the voice joins
+    /// them itself instead of stopping in between. Set for natural voices
+    /// without word timing (Supertonic reads at most 70 characters per call
+    /// on the phone); nil reads every sentence on its own.
+    public var packSentences: Int?
 
     public init(granularity: Granularity = .paragraph, includeTitle: Bool = true, paragraphPause: Double = 0.35,
                 headingPause: Double = 0.6, sentencePause: Double = 0.12, language: LanguageCode? = nil,
@@ -158,6 +164,22 @@ public struct SpeechScript: Sendable {
     /// Sentences shorter than this (UTF-16 units) are read together with the
     /// next one in sentence-by-sentence mode.
     static let shortSentence = 24
+
+    /// Sentence groups for sentence mode: short sentences ride with their
+    /// neighbour, then neighbours are packed while they fit in `packUpTo`.
+    static func sentenceGroups(_ sentences: [Range<Int>], packUpTo limit: Int?) -> [Range<Int>] {
+        let merged = mergedShortSentences(sentences)
+        guard let limit else { return merged }
+        var packed: [Range<Int>] = []
+        for group in merged {
+            if let last = packed.last, group.upperBound - last.lowerBound <= limit {
+                packed[packed.count - 1] = last.lowerBound..<group.upperBound
+            } else {
+                packed.append(group)
+            }
+        }
+        return packed
+    }
 
     static func mergedShortSentences(_ sentences: [Range<Int>]) -> [Range<Int>] {
         var groups: [Range<Int>] = []
@@ -315,7 +337,7 @@ public struct SpeechScript: Sendable {
                     language: blockLang, blockEdits: blockEdits, sentences: sentences, closeSentence: close)
             case .sentence:
                 // A one- or two-word sentence on its own sounds clipped; it rides with its neighbour.
-                let groups = Self.mergedShortSentences(sentences)
+                let groups = Self.sentenceGroups(sentences, packUpTo: options.packSentences)
                 for (i, range) in groups.enumerated() {
                     add(blockID: id, text: text, range: range, pause: i == groups.count - 1 ? blockPause : options.sentencePause,
                         heading: isHeading, language: blockLang, blockEdits: blockEdits, closeSentence: close)

@@ -32,6 +32,28 @@ jobs:
       ASC_KEY_B64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
     steps:
       - uses: actions/checkout@v4
+      # Our own Ivy-family voices live in a private repository; a read-only
+      # deploy key (environment secret) copies them into the app. Without the
+      # key the build goes on without them.
+      - name: Add our voices
+        env:
+          VOICES_DEPLOY_KEY: ${{ secrets.VOICES_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VOICES_DEPLOY_KEY" ]; then
+            echo "::warning::No VOICES_DEPLOY_KEY: building without our own voices."
+            exit 0
+          fi
+          KEY="$RUNNER_TEMP/voices_key"
+          printf '%s\n' "$VOICES_DEPLOY_KEY" > "$KEY"
+          chmod 600 "$KEY"
+          GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+            git clone --depth 1 git@github.com:Codebater/folio-voices.git "$RUNNER_TEMP/folio-voices"
+          rm -f "$KEY"
+          mkdir -p Apps/FolioiOS/Voices
+          cp "$RUNNER_TEMP/folio-voices/styles/"*.json Apps/FolioiOS/Voices/
+          rm -rf "$RUNNER_TEMP/folio-voices"
+          echo "Voices: $(ls Apps/FolioiOS/Voices | tr '\n' ' ')"
       - name: Test and generate
         run: |
           set -euo pipefail

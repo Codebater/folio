@@ -164,6 +164,23 @@ struct SpeechScriptTests {
         #expect(b3.map(\.spokenText) == ["Emoji owl. Second sentence here."])
     }
 
+    @Test func naturalVoicesPackNeighbouringSentencesThatFitTogether() {
+        // Groups stay as they are without a limit; with one, neighbours share a
+        // segment while together they fit, and a sentence that doesn't starts the next.
+        let sentences = [0..<30, 31..<55, 56..<120]
+        #expect(SpeechScript.sentenceGroups(sentences, packUpTo: nil) == sentences)
+        #expect(SpeechScript.sentenceGroups(sentences, packUpTo: 64) == [0..<55, 56..<120])
+        var options = SpeechScriptOptions(granularity: .sentence, includeTitle: false, language: .english)
+        options.packSentences = 64
+        let doc = ArticleParser.parse(html: "<p>The ice drifted north all winter. The ship drifted with it. "
+            + "Then the long measurement campaign began and lasted well over a year.</p>", title: nil)
+        let script = SpeechScript.build(document: doc, title: nil, options: options)
+        #expect(script.segments.map(\.spokenText) == ["The ice drifted north all winter. The ship drifted with it.",
+                                                       "Then the long measurement campaign began and lasted well over a year."])
+        #expect(script.segments[0].pauseAfter == options.sentencePause)
+        #expect(script.segments[1].pauseAfter == options.paragraphPause)
+    }
+
     @Test func locatesTapPositionsAtWordStarts() throws {
         let script = SpeechScript.build(document: document, title: "Quiet wings", options: SpeechScriptOptions(language: .english))
         let text = document.block(id: "b1")!.text

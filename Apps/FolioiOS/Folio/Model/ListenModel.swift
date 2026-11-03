@@ -57,6 +57,9 @@ struct ListenPreferences: Codable, Equatable {
     /// The languages narration speaks, main first; nil until the reader
     /// chooses (then the library's own languages are used).
     var readAloudLanguages: [String]?
+    /// Natural voices play in a small room (a faint reverb and room tone), so
+    /// words ring out across the joins instead of stopping dead.
+    var room = true
 
     init() {}
 
@@ -85,6 +88,7 @@ struct ListenPreferences: Codable, Equatable {
         highlightStyle = try c.decodeIfPresent(NarrationHighlightStyle.self, forKey: .highlightStyle) ?? defaults.highlightStyle
         naturalVoicesRemoved = try c.decodeIfPresent(Bool.self, forKey: .naturalVoicesRemoved) ?? false
         readAloudLanguages = try c.decodeIfPresent([String].self, forKey: .readAloudLanguages)
+        room = try c.decodeIfPresent(Bool.self, forKey: .room) ?? defaults.room
     }
 }
 
@@ -132,6 +136,8 @@ final class ListenModel {
             engine.preferredVoiceIDs = preferences.voiceByLanguage
             engine.voiceTuning = app?.entitlements.isPremium == true ? preferences.voiceTuning : [:]
             controller?.continuousPlayback = preferences.continuousPlayback
+            neuralOutput.room = preferences.room
+            neuralPreview.room = preferences.room
         }
     }
     /// The voice whose sample is playing in the Voice Library.
@@ -143,7 +149,14 @@ final class ListenModel {
     @ObservationIgnored let neuralSynthesizer = FluidSpeechSynthesizer(
         modelsDirectory: ListenModel.folder("NeuralModels", in: .applicationSupportDirectory),
         cacheDirectory: ListenModel.folder("Narration", in: .cachesDirectory),
-        kokoroCrashMarker: ListenModel.kokoroCrashMarker)
+        kokoroCrashMarker: ListenModel.kokoroCrashMarker,
+        bundledStyles: ListenModel.bundledStylesFolder)
+    /// Our own Ivy-family voice styles, added to the app at build time from a
+    /// private repository. Builds without them (forks, public CI) don't list those voices.
+    nonisolated static let bundledStylesFolder = Bundle.main.url(forResource: "Voices", withExtension: nil)
+    nonisolated static let bundledStyles = FluidSpeechSynthesizer.styleNames(in: bundledStylesFolder)
+    /// Plays natural voices; its room follows `preferences.room`.
+    @ObservationIgnored private let neuralOutput = ClipOutput()
     nonisolated static let kokoroCrashMarker = folder("NeuralModels", in: .applicationSupportDirectory)
         .appendingPathComponent(".kokoro-busy")
     /// Kokoro took the app down on this iPhone last time and was switched off.
@@ -201,8 +214,10 @@ final class ListenModel {
             let routing = synthesizers!
             Task { await routing.set(remote, for: VoiceServer.prefix) }
         }
-        neural = TimedSpeechEngine(synthesizer: synthesizers, output: ClipOutput())
-        neural.voices = NeuralVoiceCatalog.speechVoices(installed: installedModels)
+        neuralOutput.room = preferences.room
+        neuralPreview.room = preferences.room
+        neural = TimedSpeechEngine(synthesizer: synthesizers, output: neuralOutput)
+        neural.voices = NeuralVoiceCatalog.speechVoices(installed: installedModels, bundledStyles: Self.bundledStyles)
         neural.voiceForSegment = { [weak self] in self?.neuralVoiceID(for: $0) }
         // Short sentences (sentence-by-sentence voices) need more rendered
         // ahead, so a long sentence can't make playback wait.
@@ -424,7 +439,7 @@ final class ListenModel {
     /// Apple's installed voices plus the neural voices whose model is
     /// downloaded (the Neural voices section offers the downloads).
     func loadVoices() async {
-        voices = await engine.availableVoices() + NeuralVoiceCatalog.speechVoices(installed: installedModels).filter(\.isInstalled)
+        voices = await engine.availableVoices() + NeuralVoiceCatalog.speechVoices(installed: installedModels, bundledStyles: Self.bundledStyles).filter(\.isInstalled)
             + serverVoices
         refreshActiveVoice()
     }
@@ -730,7 +745,7 @@ final class ListenModel {
                 if model == .kokoro { self.kokoroCrashed = false }
                 self.modelDownloads[model] = nil
                 self.installedModels.insert(model)
-                self.neural.voices = NeuralVoiceCatalog.speechVoices(installed: self.installedModels)
+                self.neural.voices = NeuralVoiceCatalog.speechVoices(installed: self.installedModels, bundledStyles: Self.bundledStyles)
                 await self.loadVoices()
             } catch {
                 self?.modelDownloads[model] = .failed(error.localizedDescription)
@@ -750,7 +765,7 @@ final class ListenModel {
         try? neuralModels.removeAll()
         await neuralSynthesizer.cache.removeAll()
         installedModels = []
-        neural.voices = NeuralVoiceCatalog.speechVoices(installed: [])
+        neural.voices = NeuralVoiceCatalog.speechVoices(installed: [], bundledStyles: Self.bundledStyles)
         for (language, id) in preferences.voiceByLanguage where NeuralVoiceCatalog.isNeural(id) {
             preferences.voiceByLanguage[language] = nil
         }
