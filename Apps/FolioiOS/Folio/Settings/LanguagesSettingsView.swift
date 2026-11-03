@@ -2,17 +2,18 @@ import SwiftUI
 import FolioCore
 import FolioAudio
 
-/// The languages Paperwire speaks, each with its own voice. Narration never
-/// uses a language that's off: a story guessed to be in one is read in the
-/// main language, and stations play one language section at a time.
+/// The languages Paperwire speaks, each with its own voice. English, German,
+/// Spanish, Slovak and Czech are always read in their own language; others
+/// only when turned on. A story in a language narration doesn't speak is
+/// read in the main language, and stations play one language section at a time.
 struct LanguagesSettingsView: View {
     @Environment(ListenModel.self) private var listen
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var listen = listen
-        let enabled = listen.readAloudLanguages
-        let main = enabled.first ?? "en"
+        let enabled = listen.activeLanguages
+        let main = listen.readAloudLanguages.first ?? "en"
         List {
             Section {
                 ForEach(rows, id: \.self) { code in
@@ -29,13 +30,14 @@ struct LanguagesSettingsView: View {
                             Text(detail(code)).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    .disabled(enabled == [code])  // one language always stays on
+                    // One language always stays on, and the tuned ones are always spoken.
+                    .disabled(listen.readAloudLanguages == [code] || Self.alwaysSpoken.contains(code))
                     .accessibilityIdentifier("read-aloud-\(code)")
                 }
             } header: {
                 Text("Read aloud in")
             } footer: {
-                Text("Paperwire speaks only these languages. A story in any other language, or one it can't place, is read in \(VoiceText.language(main)). Turning a language off doesn't hide its articles.")
+                Text("English, German, Spanish, Slovak and Czech are always read in their own language: Paperwire recognises the language from the article's text before it starts. Other languages are read only when they're on. A story in any other language, or one it can't place, is read in \(VoiceText.language(main)). Turning a language off doesn't hide its articles.")
             }
 
             if enabled.count > 1 {
@@ -70,7 +72,7 @@ struct LanguagesSettingsView: View {
             } header: {
                 Text("Inside an article")
             } footer: {
-                Text("An English article quoting a long German paragraph can read it with your German voice, if German is on. Short passages keep the article's voice, and stations never switch voice inside a story.")
+                Text("An English article quoting a long German paragraph can read it with your German voice. Short passages keep the article's voice, and stations never switch voice inside a story.")
             }
 
             if listen.preferences.readAloudLanguages != nil {
@@ -93,16 +95,18 @@ struct LanguagesSettingsView: View {
         return candidates.reduce(into: [String]()) { if !$1.isEmpty && !$0.contains($1) { $0.append($1) } }
     }
 
+    static let alwaysSpoken = Set(LanguageCode.tuned.map(\.base))
+
     private func detail(_ code: String) -> String {
         let count = model.libraryLanguageCounts[code] ?? 0
         let articles = count == 0 ? "No articles yet" : "\(count) \(count == 1 ? "article" : "articles")"
-        guard listen.readAloudLanguages.contains(code), let voice = listen.narratingVoice(for: code) else { return articles }
+        guard listen.spokenLanguages.contains(code), let voice = listen.narratingVoice(for: code) else { return articles }
         return "\(articles) · \(voice.name)"
     }
 
     private func isOn(_ code: String) -> Binding<Bool> {
         Binding(
-            get: { listen.readAloudLanguages.contains(code) },
+            get: { listen.spokenLanguages.contains(code) },
             set: { on in
                 var languages = listen.readAloudLanguages
                 if on, !languages.contains(code) { languages.append(code) }

@@ -61,6 +61,44 @@ public struct PreferredVoice: Hashable, Sendable, Codable {
     }
 }
 
+/// Said after an article, like a newsreader handing over: where it came
+/// from and, when another article follows, what it is. Built once the
+/// article's language is known and said in it; languages without phrases
+/// say nothing.
+public struct SpeechOutro: Hashable, Sendable {
+    public var source: String?
+    public var nextTitle: String?
+    /// The next article's feed, so its title is read without the site's name.
+    public var nextSource: String?
+
+    public init(source: String?, nextTitle: String? = nil, nextSource: String? = nil) {
+        self.source = source
+        self.nextTitle = nextTitle
+        self.nextSource = nextSource
+    }
+
+    public func text(language: LanguageCode?) -> String? {
+        let source = source.map(TextNormalizer.normalize).flatMap { $0.isEmpty ? nil : $0 }
+        let next = nextTitle.map { title -> String in
+            let clean = PronunciationRules.apply(TitleCleaner.edits(for: title, source: nextSource), to: title).spoken
+            return TextNormalizer.normalize(clean).trimmingCharacters(in: CharacterSet(charactersIn: " .:"))
+        }.flatMap { $0.isEmpty ? nil : $0 }
+        let from: (String) -> String
+        let upNext: (String) -> String
+        switch language?.base ?? "en" {
+        case "en": from = { "That was an article from \($0)." }; upNext = { "Coming up next: \($0)." }
+        case "de": from = { "Das war ein Artikel von \($0)." }; upNext = { "Als Nächstes: \($0)." }
+        case "es": from = { "Este ha sido un artículo de \($0)." }; upNext = { "A continuación: \($0)." }
+        // "zo zdroja" / "ze zdroje" keep the name as written: no declension needed.
+        case "sk": from = { "To bol článok zo zdroja \($0)." }; upNext = { "Nasleduje: \($0)." }
+        case "cs": from = { "To byl článek ze zdroje \($0)." }; upNext = { "Následuje: \($0)." }
+        default: return nil
+        }
+        let parts = [source.map(from), next.map(upNext)].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+}
+
 public struct SpeechScriptOptions: Sendable {
     public enum Granularity: String, Sendable, Codable, CaseIterable { case paragraph, sentence }
 
@@ -80,9 +118,10 @@ public struct SpeechScriptOptions: Sendable {
     /// Base languages a paragraph may switch to (the languages the reader
     /// actually reads); nil allows any.
     public var switchLanguages: Set<String>?
-    /// The languages the reader has turned on, main first. Narration never
-    /// speaks any other: an article guessed to be in one is read in the
-    /// main language. Empty allows every language.
+    /// The languages narration speaks, main first (`ArticleLanguage.spoken`:
+    /// the reader's, plus every tuned one). Narration never speaks any
+    /// other: an article guessed to be in one is read in the main language.
+    /// Empty allows every language.
     public var readAloudLanguages: [String] = []
     /// When nothing else says which language an article is in: the language
     /// most of the library uses. Better than the phone's language, which a
@@ -110,6 +149,8 @@ public struct SpeechScriptOptions: Sendable {
     /// without word timing (Supertonic reads at most 70 characters per call
     /// on the phone); nil reads every sentence on its own.
     public var packSentences: Int?
+    /// Said after the article's last paragraph; nil says nothing.
+    public var outro: SpeechOutro?
 
     public init(granularity: Granularity = .paragraph, includeTitle: Bool = true, paragraphPause: Double = 0.35,
                 headingPause: Double = 0.6, sentencePause: Double = 0.12, language: LanguageCode? = nil,
@@ -419,6 +460,12 @@ public struct SpeechScript: Sendable {
             }
         }
         closeQuote(after: previousID)
+        if let text = options.outro?.text(language: language) {
+            let id = announcementPrefix + "outro"
+            order.append(id)
+            add(blockID: id, text: text, range: 0..<text.utf16Length, pause: options.headingPause, heading: false,
+                language: language, closeSentence: true)
+        }
         for (j, announcement) in announcementsAfter.enumerated() {
             addAnnouncement(announcement, number: announcementsBefore.count + j)
         }

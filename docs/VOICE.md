@@ -84,6 +84,15 @@ Every rendered clip is trimmed to 40 ms of silence at each end and brought to on
 - Like Ivy, they speak all five languages.
 - Their style files live in a private repository. The TestFlight workflow copies them into the app, and other builds don't offer them.
 - They carry the same OpenRAIL-M terms as Ivy.
+- Given the right language, every one of them sounds native. A language identifier (VoxLingua107) heard our seven voices as the intended language with a probability of 0.986 to 1.000 in all five languages, and Supertone's presets with 0.936 to 1.000. English never scored above 0.001 for text in the other languages.
+
+**Numbers.** Supertonic reads digits badly outside English: a year in digits sounds like no particular language (a Slovak "2026" scored 0.01 Slovak in Ivy's voice, against 1.00 in words). So when a Supertonic voice reads German, Spanish, Slovak or Czech, numbers are said as words first (`NumberWording`):
+- Dates in their spoken form: "3. novembra 2026" becomes "tretieho novembra dvetisíc dvadsaťšesť", and "am 3. November" becomes "am dritten November".
+- Times, decimals, percentages and plain numbers: "o 14:30" becomes "o štrnástej tridsať", and "4,5 %" becomes "vier Komma fünf Prozent".
+- English keeps its digits, and Apple voices aren't affected.
+- Ordinals before a noun ("21. storočie", "der 3. Platz") stay as written, because their ending depends on the noun.
+
+**Outro.** After an article, the voice says where it was from and what's next, in the article's language: "That was an article from The Margin. Coming up next: …". It is switched on in Listening style. Stations keep their own introductions.
 
 Models download only when the user taps Download (from FluidInference on Hugging Face) into Application Support. Rendered paragraphs are cached as AAC in Caches, per user, never shared, and pruned when least recently used (600 MB cap).
 
@@ -112,7 +121,8 @@ Ivy (Supertonic-3, style F1) comes with the app for everyone. She reads every ar
 
 The thresholds follow published language-identification accuracy (Lingua's reports: short English is most often mistaken for French, Slovak for Czech) and the FluidAudio and Kokoro documentation.
 
-- **Article language.** Taken from the article's own text: the full text when it was fetched, otherwise the feed's version. The feed's usual language is the prior: a feed has one when at least 70% of five or more articles share it.
+- **Spoken languages.** English, German, Spanish, Slovak and Czech are always recognised and read in their own language. Other languages are read only when turned on in Settings › Languages; anything else is read in the main language. (Before, a German article with only English and Slovak on was read with the English language tag, so every voice gave it an English accent.)
+- **Article language.** Taken from the article's own text before narration starts: the full text when it was fetched, otherwise the feed's version. The feed's usual language is the prior: a feed has one when at least 70% of five or more articles share it.
   - Text of 40 or more words decides on its own (confidence 0.6 or more).
   - Shorter text needs 0.9 to overrule the feed.
   - Under 12 words, the feed decides.
@@ -120,9 +130,9 @@ The thresholds follow published language-identification accuracy (Lingua's repor
 - **Paragraphs in another language** (a German quote in an English article) switch voice only when all of these hold:
   - the paragraph has 20 or more words;
   - the guess is 0.8 or more;
-  - the language is one the reader actually reads (3% of the library, or 10 articles), or one with a chosen voice.
+  - the language is a spoken one.
 
-  Apple's recognizer only chooses among those languages, tipped towards the feed's. Czech and Slovak never switch between each other inside an article. Headings, titles and introductions always use the article's language.
+  Apple's recognizer only chooses among the spoken languages, tipped towards the feed's. Czech and Slovak never switch between each other inside an article. Headings, titles and introductions always use the article's language.
 - **Stations** plan each story's introduction in the feed's language, unless the article is long enough to decide for itself. The opening speaks the first story's language and the closing the last story's, never the phone's language: a Spanish phone with English news opens in English.
 - **Unknown language.** When nothing tells the language of an article, it is read in the library's most common language, not the phone's.
 - **Kokoro servers** get `lang_code` from the text's language, so English is never pronounced through Kokoro's Spanish pipeline.

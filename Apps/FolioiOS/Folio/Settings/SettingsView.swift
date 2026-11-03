@@ -71,7 +71,7 @@ struct SettingsView: View {
                         LanguagesSettingsView()
                     } label: {
                         SettingsRow(icon: "globe", title: "Languages",
-                                    subtitle: listen.readAloudLanguages.map(StationText.languageName).joined(separator: ", "))
+                                    subtitle: listen.activeLanguages.map(StationText.languageName).joined(separator: ", "))
                     }
                     .accessibilityIdentifier("languages-settings")
                     NavigationLink {
