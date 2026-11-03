@@ -14,7 +14,7 @@ import FolioCore
 /// cached as AAC, so a paragraph is synthesized once and replays at any speed.
 public actor FluidSpeechSynthesizer: SpeechSynthesizing {
     /// Part of every cache key: a new model or runtime renders afresh.
-    public static let engineVersion = "fluidaudio-0.18.0-r2"
+    public static let engineVersion = "fluidaudio-0.18.0-r3"
 
     /// Where Kokoro's stages run. The app uses `.noMetal`; the others exist
     /// for diagnosis on machines where that route fails.
@@ -35,6 +35,8 @@ public actor FluidSpeechSynthesizer: SpeechSynthesizing {
     /// be caught, so the app checks for a leftover marker at launch and
     /// switches Kokoro off on a device where it took the app down.
     public let kokoroCrashMarker: URL?
+    /// Where our own Ivy-family styles (`<name>.json`) ship inside the app; nil when none do.
+    public let bundledStyles: URL?
     private let scratch: URL
     private var kokoro: [KokoroAneVariant: KokoroAneManager] = [:]
     private var supertonic: Supertonic3Manager?
@@ -42,10 +44,11 @@ public actor FluidSpeechSynthesizer: SpeechSynthesizing {
     private var paradee: ParadeeManager?
 
     public init(modelsDirectory: URL, cacheDirectory: URL, kokoroRouting: KokoroRouting = .noMetal,
-                kokoroCrashMarker: URL? = nil) {
+                kokoroCrashMarker: URL? = nil, bundledStyles: URL? = nil) {
         self.modelsDirectory = modelsDirectory
         self.kokoroRouting = kokoroRouting
         self.kokoroCrashMarker = kokoroCrashMarker
+        self.bundledStyles = bundledStyles
         self.cache = SpeechAudioCache(directory: cacheDirectory)
         self.scratch = FileManager.default.temporaryDirectory.appendingPathComponent("folio-neural", isDirectory: true)
     }
@@ -73,7 +76,11 @@ public actor FluidSpeechSynthesizer: SpeechSynthesizing {
             _ = try await kokoroManager(.spanish)
         case .supertonic:
             _ = try await supertonicManager()
-            for voice in NeuralVoiceCatalog.all where voice.model == .supertonic { _ = try await style(voice.modelVoice) }
+            let available = Self.styleNames(in: bundledStyles)
+            for voice in NeuralVoiceCatalog.all where voice.model == .supertonic
+                && (!voice.bundledStyle || available.contains(voice.modelVoice)) {
+                _ = try await style(voice.modelVoice)
+            }
         case .paradee:
             let manager = try await paradeeManager()
             // The British voices fetch their own lexicon on first use.
@@ -131,8 +138,22 @@ public actor FluidSpeechSynthesizer: SpeechSynthesizing {
         case .supertonic:
             let manager = try await supertonicManager()
             let style = try await style(voice.modelVoice)
-            let result = try await manager.synthesize(text: text, language: LanguageCode(voice.language).base, style: style)
-            return Rendered(samples: result.samples, sampleRate: Supertonic3Constants.sampleRate, words: nil)
+            // Split here rather than in FluidAudio, so each piece's ~0.4 s of
+            // padding can be trimmed instead of becoming a pause mid-sentence.
+            let pieces = SpeechPieces.split(text)
+            var audio: [[Float]] = []
+            for piece in pieces {
+                try Task.checkCancellation()
+                guard piece.text.contains(where: { $0.isLetter || $0.isNumber }) else {
+                    audio.append([])
+                    continue
+                }
+                let result = try await manager.synthesize(text: piece.text, language: LanguageCode(voice.language).base,
+                                                          style: style)
+                audio.append(result.samples)
+            }
+            let samples = SpeechPieces.joined(audio, joints: pieces.map(\.joint), sampleRate: Supertonic3Constants.sampleRate)
+            return Rendered(samples: samples, sampleRate: Supertonic3Constants.sampleRate, words: nil)
         case .paradee:
             let manager = try await paradeeManager()
             guard let paradeeVoice = ParadeeVoice(rawValue: voice.modelVoice) else { throw NeuralVoiceError.unknownVoice(voice.id) }
@@ -196,10 +217,25 @@ public actor FluidSpeechSynthesizer: SpeechSynthesizing {
 
     private func style(_ name: String) async throws -> Supertonic3VoiceStyle {
         if let style = styles[name] { return style }
-        guard let voice = Supertonic3Voice(rawValue: name) else { throw NeuralVoiceError.unknownVoice(name) }
-        let style = try await Supertonic3ResourceDownloader.loadVoiceStyle(voice, directory: modelsDirectory)
+        let style: Supertonic3VoiceStyle
+        if let voice = Supertonic3Voice(rawValue: name) {
+            style = try await Supertonic3ResourceDownloader.loadVoiceStyle(voice, directory: modelsDirectory)
+        } else if let file = bundledStyles?.appendingPathComponent("\(name).json"),
+                  FileManager.default.fileExists(atPath: file.path) {
+            style = try Supertonic3VoiceStyle.load(from: file)
+        } else {
+            throw NeuralVoiceError.unknownVoice(name)
+        }
         styles[name] = style
         return style
+    }
+
+    /// Our own styles present in `directory` (file names without `.json`).
+    public static func styleNames(in directory: URL?) -> Set<String> {
+        guard let directory,
+              let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        else { return [] }
+        return Set(files.filter { $0.pathExtension == "json" }.map { $0.deletingPathExtension().lastPathComponent })
     }
 
     static func substring(_ text: String, _ range: Range<Int>) -> String {

@@ -131,7 +131,10 @@ struct NaturalVoicesView: View {
     /// Each model voice once (a Supertonic voice is listed per language in the catalog).
     private func distinctVoices(_ model: NeuralVoiceCatalog.Model) -> [NeuralVoiceCatalog.Voice] {
         var seen: Set<String> = []
-        return NeuralVoiceCatalog.all.filter { $0.model == model && seen.insert($0.modelVoice).inserted }
+        return NeuralVoiceCatalog.all.filter {
+            $0.model == model && (!$0.bundledStyle || ListenModel.bundledStyles.contains($0.modelVoice))
+                && seen.insert($0.modelVoice).inserted
+        }
     }
 
     private func languageCount(_ model: NeuralVoiceCatalog.Model, _ voice: NeuralVoiceCatalog.Voice) -> Int {

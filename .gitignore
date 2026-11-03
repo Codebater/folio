@@ -23,3 +23,7 @@ xcuserdata/
 # Private notes live in ../folio-notes (Forgejo andrej/folio-notes), not in this public repo.
 docs/research/
 docs/ROADMAP.md
+
+# Our own voice styles: copied in at build time from the private folio-voices repository.
+# The folder itself stays (Voices/.gitkeep): Xcode needs it to exist.
+Apps/FolioiOS/Voices/*.json

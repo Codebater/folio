@@ -647,8 +647,11 @@ final class AppModel {
         var script = SpeechScript.build(document: loaded.document, title: loaded.stored.article.title, articleID: id,
                                         options: options, languageGuesser: guesser,
                                         announcementsBefore: before, announcementsAfter: after)
-        if options.granularity == .paragraph, listen.voiceLacksWordTimings(for: script.language) {
+        if listen.voiceLacksWordTimings(for: script.language) {
             options.granularity = .sentence
+            // Short neighbours share a call, so the voice joins them itself.
+            // 64 leaves room within Supertonic's 70-character piece on the phone.
+            options.packSentences = 64
             script = SpeechScript.build(document: loaded.document, title: loaded.stored.article.title, articleID: id,
                                         options: options, languageGuesser: guesser,
                                         announcementsBefore: before, announcementsAfter: after)

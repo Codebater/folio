@@ -68,6 +68,23 @@ Natural voices that run on the iPhone itself, so they cost nothing per listener 
 
 Every rendered clip is trimmed to 40 ms of silence at each end and brought to one speech level, about −20 dBFS with peaks under −1 dBFS. Switching voices then doesn't jump in volume, and Folio's own pauses are the only ones.
 
+**Joins.** On the phone, FluidAudio feeds Supertonic at most 70 characters per call: the Core ML model has a fixed 128-token text window, and quality drops near its edge. Each call comes back with about 0.4 s of silence at both ends.
+- Left to FluidAudio, a long sentence was split, and the two paddings met as a pause of almost a second in the middle of the sentence.
+- Paperwire now splits the text itself, the same way (`SpeechPieces`): sentences, then commas, then words.
+- It trims each piece's padding and joins the pieces with the pause the text asks for: 0.18 s after a sentence, 0.10 s at a comma, 0.03 s between words.
+- On a test paragraph this removed nine mid-sentence pauses and about 8 s of dead air.
+- **Packing.** In sentence-by-sentence mode, neighbouring sentences share one call while together they fit in 64 characters, so the voice joins them itself. Both sentences are shaded.
+
+**Room** (Listening style → Natural voices, on by default):
+- Neural clips play through a small room: Apple's small-room reverb at about 6% wet, and a faint room tone 68 dB under the voice.
+- Words then ring out softly across the joins between clips instead of stopping in digital silence. The big cloud and server models sound this way because they learned from real recordings.
+- A voice can also bring its own studio tone: a low-end lift, and air on top.
+
+**Our own voices.** Orion, Atlas, Vera, Clara, Rowan, Aurora and Theo are Ivy-family voices made in-house for Supertonic-3, each fitted to an original designed voice, never a real person's.
+- Like Ivy, they speak all five languages.
+- Their style files live in a private repository. The TestFlight workflow copies them into the app, and other builds don't offer them.
+- They carry the same OpenRAIL-M terms as Ivy.
+
 Models download only when the user taps Download (from FluidInference on Hugging Face) into Application Support. Rendered paragraphs are cached as AAC in Caches, per user, never shared, and pruned when least recently used (600 MB cap).
 
 ### How narration uses them
