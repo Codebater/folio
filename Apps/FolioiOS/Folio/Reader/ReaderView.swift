@@ -4,9 +4,11 @@ import FolioReader
 import FolioAudio
 import FolioStorage
 
-/// The immersive reading screen. Tap the page to hide or show the chrome;
-/// in paginated mode the left and right edges turn pages. While this article
-/// is being narrated, tapping a paragraph continues narration from there.
+/// The immersive reading screen. In paginated mode the left and right edges
+/// turn pages. While this article is narrated, tapping a word reads on from
+/// the start of its sentence. Otherwise a tap on text marks that sentence and
+/// offers to listen from there (tap it again, or the button, to start); a
+/// tap beside the text hides or shows the chrome.
 struct ReaderView: View {
     let articleID: ArticleID
 
@@ -29,9 +31,18 @@ struct ReaderView: View {
     @State private var isDownloading = false
     @State private var lastSavedAt = Date.distantPast
     @State private var fullText: FullTextState = .none
+    /// A sentence the reader tapped while nothing was playing.
+    @State private var tapStart: TapStart?
     @Environment(\.openURL) private var openURL
 
     enum FullTextState { case none, loading, unavailable }
+
+    struct TapStart: Equatable {
+        var position: SpeechPosition
+        var sentence: Range<Int>
+        /// The sentence's first words, for the button.
+        var preview: String
+    }
 
     private var settings: ReaderSettings { model.effectiveReaderSettings(systemIsDark: colorScheme == .dark) }
     private var narratingHere: Bool { listen.isNarrating(articleID) }
@@ -60,6 +71,26 @@ struct ReaderView: View {
                 .padding(.bottom, chromeVisible ? 70 : 24)
                 .transition(.opacity)
             }
+            if let tapStart, !narratingHere {
+                Button {
+                    startListening(from: tapStart.position)
+                } label: {
+                    Label {
+                        Text("Listen from “\(tapStart.preview)”").lineLimit(1)
+                    } icon: {
+                        Image(systemName: "play.fill")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(settings.theme.isDark ? Color(settings.theme.background) : .white)
+                    .padding(.horizontal, 18).padding(.vertical, 12)
+                    .background(Color(settings.theme.accent), in: Capsule())
+                    .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, chromeVisible ? 70 : 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .accessibilityIdentifier("listen-from-tap")
+            }
             if settings.layout == .paginated, let position, position.pages > 1, !chromeVisible {
                 Text("\(position.page + 1) / \(position.pages)")
                     .font(.caption2.monospacedDigit())
@@ -83,6 +114,14 @@ struct ReaderView: View {
             }
         }
         .animation(.snappy, value: fullText)
+        .animation(reduceMotion ? nil : .snappy, value: tapStart)
+        .task(id: tapStart) {
+            // The offer fades after a while; the marked sentence with it.
+            guard tapStart != nil else { return }
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled else { return }
+            dismissTapStart()
+        }
         .navigationTitle(loaded?.feedTitle ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(chromeVisible ? .visible : .hidden, for: .navigationBar)
@@ -175,7 +214,7 @@ struct ReaderView: View {
             } label: {
                 Image(systemName: "headphones.circle.fill").font(.title2)
             } primaryAction: {
-                startListening(fromHere: (position?.progress ?? 0) > 0.02)
+                if let tapStart { startListening(from: tapStart.position) } else { startListening(fromHere: (position?.progress ?? 0) > 0.02) }
             }
             .accessibilityLabel("Listen")
             .accessibilityHint("Reads the article aloud and highlights each word")
@@ -273,13 +312,53 @@ struct ReaderView: View {
                 zone == "left" ? bridge.previousPage() : bridge.nextPage()
             } else if narratingHere, let blockID {
                 followNarration = true
-                listen.start(at: SpeechPosition(blockID: blockID, offset: offset))
+                let tap = SpeechPosition(blockID: blockID, offset: offset)
+                Task { await listen.read(from: tap, blockText: blockText(blockID)) }
+            } else if let blockID, let start = tapStart(blockID: blockID, offset: offset) {
+                if tapStart?.position == start.position {
+                    startListening(from: start.position)  // the same sentence again: go
+                } else {
+                    tapStart = start
+                    bridge.highlight(blockID: blockID, range: nil, sentence: start.sentence, follow: false)
+                }
             } else {
+                dismissTapStart()
                 chromeVisible.toggle()
             }
         case .userScroll:
-            if narratingHere { followNarration = false }
+            if narratingHere { followNarration = false } else { dismissTapStart() }
         }
+    }
+
+    private func blockText(_ blockID: String) -> String? {
+        if blockID == SpeechScript.titleBlockID { return loaded?.stored.article.title }
+        return loaded?.document.blocks.first { $0.id == blockID }?.text
+    }
+
+    /// The sentence (or long sentence's clause) a tap on text would read from.
+    private func tapStart(blockID: String, offset: Int) -> TapStart? {
+        guard let loaded, let text = blockText(blockID), !text.isEmpty else { return nil }
+        if blockID != SpeechScript.titleBlockID, loaded.document.blocks.first(where: { $0.id == blockID })?.isSpeakable != true { return nil }
+        let language = loaded.document.language ?? loaded.stored.language
+        let start = TapReading.start(in: text, at: offset, language: language)
+        let sentence = TapReading.sentence(in: text, at: offset, language: language) ?? (start..<text.utf16Length)
+        let words = String(text.utf16Slice(start..<text.utf16Length)).split(whereSeparator: \.isWhitespace)
+        let preview = words.prefix(5).joined(separator: " ") + (words.count > 5 ? "…" : "")
+        return TapStart(position: SpeechPosition(blockID: blockID, offset: start),
+                        sentence: max(sentence.lowerBound, start)..<sentence.upperBound, preview: preview)
+    }
+
+    private func dismissTapStart() {
+        guard tapStart != nil else { return }
+        tapStart = nil
+        if !narratingHere { bridge.clearHighlight() }
+    }
+
+    private func startListening(from position: SpeechPosition) {
+        guard let item = listItem else { return }
+        followNarration = true
+        tapStart = nil
+        Task { await listen.play(item, from: position) }
     }
 
     private func startListening(fromHere: Bool) {

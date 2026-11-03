@@ -275,6 +275,32 @@ public final class ReadAlongController {
         if engine.state == .idle { engine.speak(script, from: position) } else { engine.seek(to: position) }
     }
 
+    /// Reads from where the reader tapped: the start of that sentence (or
+    /// clause), playing whether narration was playing, paused or not loaded.
+    /// A script that doesn't know the block is built again first: after a
+    /// relaunch none is loaded, and one built from a feed's summary doesn't
+    /// match the full article that replaced it on the page.
+    public func read(from tap: SpeechPosition, blockText: String? = nil) async {
+        guard let item = state.item else { return }
+        if let script, script.contains(blockID: tap.blockID) {
+            let target = script.readingStart(forTap: tap, blockText: blockText)
+            // Straight there: resuming would rewind to where it was paused.
+            pausedAt = nil
+            if engine.state == .speaking { engine.seek(to: target) } else { engine.speak(script, from: target) }
+            return
+        }
+        storyGap?.cancel()
+        storyGap = nil
+        loadGeneration += 1
+        let generation = loadGeneration
+        engine.stop()
+        var next = state
+        next.status = .loading
+        state = next
+        guard let fresh = await scriptProvider(item), generation == loadGeneration else { return }
+        start(fresh, item: item, from: fresh.readingStart(forTap: tap, blockText: blockText))
+    }
+
     /// Jumps by whole paragraphs (segments in sentence mode). Skipping back
     /// within the first few words restarts the current one instead.
     /// The start of the current sentence (or paragraph), for resuming after a long pause.

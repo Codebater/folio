@@ -360,6 +360,13 @@ final class ListenModel {
         controller.start(at: position)
     }
 
+    /// Reads from a word the reader tapped: the start of its sentence (or
+    /// clause), playing whether narration was playing or paused.
+    func read(from tap: SpeechPosition, blockText: String?) async {
+        activateSession()
+        await controller.read(from: tap, blockText: blockText)
+    }
+
     func skip(by delta: Int) { controller.skip(by: delta) }
 
     /// Next heading, or back to the start of this section. False when there's none.
