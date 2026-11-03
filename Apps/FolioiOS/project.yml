@@ -39,11 +39,10 @@ targets:
         excludes:
           - Folio.storekit
       # Our own Ivy-family voice styles. Not in this public repository: the
-      # TestFlight workflow copies them in from a private one. Builds without
-      # the folder simply don't offer those voices.
+      # TestFlight workflow copies them in from a private one. The folder is
+      # kept empty here (.gitkeep); builds without the files don't offer them.
       - path: Voices
         type: folder
-        optional: true
         buildPhase: resources
     dependencies:
       - package: FolioKit
