@@ -610,6 +610,7 @@ private struct NowPlayingCard: View {
                 }
                 .buttonStyle(.plain)
                 .layoutPriority(1)
+                .accessibilityIdentifier("read-along")
             }
             PlaybackErrorLabel()
         }

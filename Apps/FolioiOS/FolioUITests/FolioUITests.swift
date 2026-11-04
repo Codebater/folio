@@ -78,53 +78,68 @@ final class FolioUITests: XCTestCase {
     func testAppStoreScreens() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["APP_STORE_SCREENS"] == "1",
                           "Only for the App Store screens workflow")
+        // Warm Paper: Today, then the Daily Mix's first story reading along.
         var app = launch(extra: ["--theme", "warm-paper"])
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
         screenshot(app, "01-today")
-        app.buttons["featured-story"].tap()
-        let listen = app.buttons["reader-listen"]
-        XCTAssertTrue(listen.waitForExistence(timeout: 10))
-        listen.tap()
-        sleep(4)  // a few words in, so the highlight is on a sentence
-        screenshot(app, "02-reader-read-along")
-        app.terminate()
-
-        app = launch(extra: ["--theme", "midnight"])
-        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
         tab(app, "Listen")
         XCTAssertTrue(app.buttons["daily-mix"].waitForExistence(timeout: 10))
         app.buttons["daily-mix"].tap()
         XCTAssertTrue(app.staticTexts["now-playing-title"].waitForExistence(timeout: 10))
         app.swipeDown()
         app.swipeDown()
-        sleep(1)
-        screenshot(app, "03-listen-playing")
-        app.swipeUp()
-        sleep(1)
-        screenshot(app, "04-stations")
+        let readAlong = app.buttons["read-along"]
+        XCTAssertTrue(readAlong.waitForExistence(timeout: 5))
+        readAlong.tap()
+        XCTAssertTrue(app.buttons["Appearance"].waitForExistence(timeout: 10))
+        sleep(8)  // past the introduction, so the highlight is in the article
+        screenshot(app, "02-reader-read-along")
+        app.terminate()
+
+        // Midnight: Library and the stations before anything plays (no audio
+        // indicator in the Dynamic Island), then Listen playing.
+        app = launch(extra: ["--theme", "midnight"])
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
         tab(app, "Library")
         XCTAssertTrue(app.staticTexts["library-title"].waitForExistence(timeout: 5))
-        screenshot(app, "07-library")
+        screenshot(app, "06-library")
+        tab(app, "Listen")
+        XCTAssertTrue(app.buttons["daily-mix"].waitForExistence(timeout: 10))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+        sleep(1)
+        screenshot(app, "04-stations")
+        app.swipeDown()
+        app.swipeDown()
+        app.buttons["daily-mix"].tap()
+        XCTAssertTrue(app.staticTexts["now-playing-title"].waitForExistence(timeout: 10))
+        app.swipeDown()
+        app.swipeDown()
+        sleep(1)
+        screenshot(app, "03-listen-playing")
+        app.terminate()
+
+        // Warm Paper: the reader's Appearance sheet, then Premium.
+        app = launch(extra: ["--theme", "warm-paper"])
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
+        app.buttons["featured-story"].tap()
+        let appearance = app.buttons["Appearance"]
+        XCTAssertTrue(appearance.waitForExistence(timeout: 10))
+        appearance.tap()
+        XCTAssertTrue(app.navigationBars["Appearance"].waitForExistence(timeout: 5))
+        sleep(1)
+        screenshot(app, "05-appearance")
         app.terminate()
 
         app = launch(extra: ["--theme", "warm-paper"])
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
-        openVoiceLibrary(app)
-        XCTAssertTrue(app.navigationBars["Voices"].waitForExistence(timeout: 5))
-        sleep(1)
-        screenshot(app, "05-voices")
-        app.buttons["natural-voices"].tap()
-        XCTAssertTrue(app.navigationBars["Natural voices"].waitForExistence(timeout: 5))
-        screenshot(app, "06-natural-voices")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["Settings"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         let premium = app.buttons["Paperwire Premium"]
         scrollTo(premium, in: app)
         premium.tap()
-        XCTAssertTrue(app.staticTexts["Paperwire Premium"].waitForExistence(timeout: 5))
         sleep(3)  // StoreKit answers
-        screenshot(app, "08-premium")
+        screenshot(app, "07-premium")
     }
 
     func testOnboardingOffersTheDemoLibrary() {
