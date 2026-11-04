@@ -152,13 +152,14 @@ struct PremiumView: View {
         return entitlements.products.filter { $0.id != PremiumProduct.familyUpgrade.rawValue }
     }
 
+    /// Only what Premium unlocks in this build: App Review rejects purchases
+    /// that promise features the app doesn't have yet.
     private let features: [(String, String)] = [
+        ("person.2.wave.2", "More natural voices, including our own Orion"),
         ("paintpalette", "Custom themes and letter spacing"),
         ("waveform", "Speeds above 2×, pitch and speed per voice"),
         ("person.wave.2", "A different voice for each feed"),
         ("character.book.closed", "Your own pronunciations, including regular expressions"),
-        ("list.bullet.rectangle", "Smarter listening queues"),
-        ("chart.bar", "Reading statistics"),
     ]
 
     var body: some View {
