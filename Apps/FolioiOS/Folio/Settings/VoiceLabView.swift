@@ -48,7 +48,7 @@ struct NaturalVoicesView: View {
                 }
                 .accessibilityIdentifier("voice-server")
             } footer: {
-                Text("Like BookOrbit: connect your own Kokoro server (Kokoro-FastAPI) or any OpenAI-compatible speech server, and its voices appear here. Text goes only to your server.")
+                Text("Connect your own Kokoro server (Kokoro-FastAPI) or any OpenAI-compatible speech server, and its voices appear here. Text goes only to your server.")
             }
 
             Section {
@@ -174,7 +174,7 @@ struct VoiceServerView: View {
             } header: {
                 Text("Server")
             } footer: {
-                Text("The address of Kokoro-FastAPI or another OpenAI-compatible speech server, with or without /v1 (BookOrbit's format works). On a home network or Tailscale, http is fine. The key is kept in the Keychain.")
+                Text("The address of Kokoro-FastAPI or another OpenAI-compatible speech server, with or without /v1. On a home network or Tailscale, http is fine. The key is kept in the Keychain.")
             }
 
             switch listen.voiceServerStatus {

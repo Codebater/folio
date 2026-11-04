@@ -334,9 +334,11 @@ final class AppModel {
 
     // MARK: Full text
 
-    /// A summary Folio could replace with the publisher's article.
+    /// A summary Folio could replace with the publisher's article. The demo
+    /// library's articles are complete, short as they are.
     func needsFullText(_ stored: StoredArticle) -> Bool {
-        guard reading.fetchFullText, stored.fullTextStatus == .notTried, stored.wordCount < Self.summaryWordLimit,
+        guard account != .demo, reading.fetchFullText, stored.fullTextStatus == .notTried,
+              stored.wordCount < Self.summaryWordLimit,
               let url = stored.article.url
         else { return false }
         return FullTextFetcher.isSupported(FullTextFetcher.cleaned(url))
@@ -404,6 +406,7 @@ final class AppModel {
     /// After a sync: full text for the newest unread summaries, three at a
     /// time, on Wi-Fi only, so they read and play offline.
     func prefetchFullText() async {
+        guard account != .demo else { return }
         let since = Date().addingTimeInterval(-3 * 86_400)
         guard let wanted = try? await store.articlesNeedingFullText(publishedAfter: since, maxWords: Self.summaryWordLimit, limit: 30)
         else { return }

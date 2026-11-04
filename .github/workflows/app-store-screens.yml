@@ -1,0 +1,111 @@
+name: App Store screenshots
+
+# Screenshots for the App Store listing, from the demo library, on the sizes
+# App Store Connect asks for: 6.9" iPhone (1320 x 2868) and 13" iPad
+# (2064 x 2752). Upload-ready JPEGs (no alpha) land in the
+# "app-store-screens-<device>" artifacts. Run it by hand before a release.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: [".github/workflows/app-store-screens.yml"]
+
+concurrency:
+  group: app-store-screens-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screens:
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: iphone-6.9
+            devices: "iPhone 17 Pro Max,iPhone 16 Pro Max"
+          - slug: ipad-13
+            devices: "iPad Pro 13-inch"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        # Same Xcode as the iOS and TestFlight workflows.
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec Apps/FolioiOS/project.yml
+
+      - name: Boot the simulator with a clean status bar
+        id: sim
+        env:
+          DEVICES: ${{ matrix.devices }}
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, os, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=lambda r: [int(x) if x.isdigit() else 0 for x in r.split("-")[-2:]])
+          for want in os.environ["DEVICES"].split(","):
+              for runtime in reversed(runtimes):
+                  match = [d for d in devices[runtime] if d["name"].startswith(want)]
+                  if match:
+                      print(match[-1]["udid"]); sys.exit()
+          ')
+          if [ -z "$UDID" ]; then
+            echo "::error::No simulator matching $DEVICES"; xcrun simctl list devices available; exit 1
+          fi
+          xcrun simctl list devices available | grep "$UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Take the screenshots
+        env:
+          # xcodebuild hands TEST_RUNNER_* variables to the tests without the prefix.
+          TEST_RUNNER_APP_STORE_SCREENS: "1"
+        run: |
+          set -o pipefail
+          FORMATTER=cat
+          command -v xcbeautify >/dev/null && FORMATTER="xcbeautify --renderer github-actions"
+          xcodebuild test \
+            -project Apps/FolioiOS/Folio.xcodeproj \
+            -scheme Folio \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:FolioUITests/FolioUITests/testAppStoreScreens \
+            -resultBundlePath build/Screens.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | $FORMATTER
+
+      - name: Export upload-ready JPEGs
+        if: always()
+        env:
+          SLUG: ${{ matrix.slug }}
+        run: |
+          mkdir -p build/raw build/app-store
+          xcrun xcresulttool export attachments --path build/Screens.xcresult --output-path build/raw
+          python3 - <<'EOF'
+          import json, os, re, subprocess
+          src, out, slug = "build/raw", "build/app-store", os.environ["SLUG"]
+          for test in json.load(open(f"{src}/manifest.json")):
+              for a in test.get("attachments", []):
+                  name = re.sub(r"_\d+_[0-9A-Fa-f-]+\.png$", "", a["suggestedHumanReadableName"])
+                  subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "100",
+                                  f"{src}/{a['exportedFileName']}", "--out", f"{out}/{slug}-{name}.jpg"],
+                                 check=True, capture_output=True)
+          EOF
+          for f in build/app-store/*.jpg; do
+            echo "$(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixel/ {printf "%s ", $2}') $(basename "$f")"
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screens-${{ matrix.slug }}
+          path: build/app-store
+          retention-days: 30
