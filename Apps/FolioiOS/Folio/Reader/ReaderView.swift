@@ -218,6 +218,7 @@ struct ReaderView: View {
             }
             .accessibilityLabel("Listen")
             .accessibilityHint("Reads the article aloud and highlights each word")
+            .accessibilityIdentifier("reader-listen")
         }
     }
 

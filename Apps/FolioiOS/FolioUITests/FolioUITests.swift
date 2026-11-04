@@ -66,6 +66,67 @@ final class FolioUITests: XCTestCase {
         }
     }
 
+    /// A tab on iPhone's tab bar, or the same tab where iPad puts it.
+    private func tab(_ app: XCUIApplication, _ name: String) {
+        let bar = app.tabBars.buttons[name]
+        (bar.exists ? bar : app.buttons[name].firstMatch).tap()
+    }
+
+    /// App Store screenshots. The App Store screens workflow runs this on the
+    /// largest iPhone and iPad with TEST_RUNNER_APP_STORE_SCREENS=1; the normal
+    /// test run skips it.
+    func testAppStoreScreens() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["APP_STORE_SCREENS"] == "1",
+                          "Only for the App Store screens workflow")
+        var app = launch(extra: ["--theme", "warm-paper"])
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
+        screenshot(app, "01-today")
+        app.buttons["featured-story"].tap()
+        let listen = app.buttons["reader-listen"]
+        XCTAssertTrue(listen.waitForExistence(timeout: 10))
+        listen.tap()
+        sleep(4)  // a few words in, so the highlight is on a sentence
+        screenshot(app, "02-reader-read-along")
+        app.terminate()
+
+        app = launch(extra: ["--theme", "midnight"])
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
+        tab(app, "Listen")
+        XCTAssertTrue(app.buttons["daily-mix"].waitForExistence(timeout: 10))
+        app.buttons["daily-mix"].tap()
+        XCTAssertTrue(app.staticTexts["now-playing-title"].waitForExistence(timeout: 10))
+        app.swipeDown()
+        app.swipeDown()
+        sleep(1)
+        screenshot(app, "03-listen-playing")
+        app.swipeUp()
+        sleep(1)
+        screenshot(app, "04-stations")
+        tab(app, "Library")
+        XCTAssertTrue(app.staticTexts["library-title"].waitForExistence(timeout: 5))
+        screenshot(app, "07-library")
+        app.terminate()
+
+        app = launch(extra: ["--theme", "warm-paper"])
+        XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
+        openVoiceLibrary(app)
+        XCTAssertTrue(app.navigationBars["Voices"].waitForExistence(timeout: 5))
+        sleep(1)
+        screenshot(app, "05-voices")
+        app.buttons["natural-voices"].tap()
+        XCTAssertTrue(app.navigationBars["Natural voices"].waitForExistence(timeout: 5))
+        screenshot(app, "06-natural-voices")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        let premium = app.buttons["Paperwire Premium"]
+        scrollTo(premium, in: app)
+        premium.tap()
+        XCTAssertTrue(app.staticTexts["Paperwire Premium"].waitForExistence(timeout: 5))
+        sleep(3)  // StoreKit answers
+        screenshot(app, "08-premium")
+    }
+
     func testOnboardingOffersTheDemoLibrary() {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-reset"]
