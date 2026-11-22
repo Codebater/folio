@@ -29,7 +29,7 @@ final class EntitlementStore {
         }
         Task {
             await refreshEntitlements()
-            await loadProducts()
+            if PremiumStore.isOnSale { await loadProducts() }
         }
     }
 

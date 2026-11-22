@@ -12,11 +12,12 @@ struct NaturalVoicesView: View {
     var body: some View {
         List {
             Section {
-                modelRow(.supertonic, title: "Ivy and friends",
+                modelRow(.supertonic, title: listen.showsExtraVoices ? "Ivy and friends" : "Ivy",
                          detail: "Czech, Slovak, German, English and Spanish · Ivy is included and reads by default")
                 if listen.installedModels.contains(.supertonic) {
                     voicePicker(.supertonic)
                 }
+                if listen.showsExtraVoices {
                 modelRow(.kokoro, title: "Kokoro", detail: "English and Spanish · highlights word by word")
                 if listen.kokoroCrashed {
                     Text("Kokoro stopped the app while it was speaking on this iPhone, so Paperwire switched it off and went back to automatic voices for English and Spanish. Tap Download to try it again.")
@@ -30,13 +31,17 @@ struct NaturalVoicesView: View {
                 if listen.installedModels.contains(.paradee) {
                     voicePicker(.paradee)
                 }
+                }
             } header: {
                 Text("On this iPhone")
             } footer: {
-                Text("Downloaded once, then they work offline. Ivy comes with Paperwire: she downloads by herself on Wi-Fi and reads every article unless you pick another voice. Tap ▶ to hear a voice and Use to make it yours. "
-                     + (listen.isTestBuild ? "In this test build every voice works without Premium." : "The other natural voices are part of Premium; previews are free."))
+                Text(listen.showsExtraVoices
+                     ? "Downloaded once, then they work offline. Ivy comes with Paperwire: she downloads by herself on Wi-Fi and reads every article unless you pick another voice. Tap ▶ to hear a voice and Use to make it yours. "
+                       + (listen.isTestBuild ? "In this test build every voice works without Premium." : "The other natural voices are part of Premium; previews are free.")
+                     : "Ivy comes with Paperwire and works offline. She downloads by herself on Wi-Fi and reads every article unless you pick an Apple voice in Voices.")
             }
 
+            if listen.showsExtraVoices {
             Section {
                 NavigationLink {
                     VoiceServerView()
@@ -58,6 +63,7 @@ struct NaturalVoicesView: View {
                     Label("Voice Lab: blind test and speed check", systemImage: "flask")
                 }
                 .accessibilityIdentifier("voice-lab")
+            }
             }
         }
         .navigationTitle("Natural voices")
@@ -133,6 +139,7 @@ struct NaturalVoicesView: View {
         var seen: Set<String> = []
         return NeuralVoiceCatalog.all.filter {
             $0.model == model && (!$0.bundledStyle || ListenModel.bundledStyles.contains($0.modelVoice))
+                && (listen.showsExtraVoices || NeuralVoiceCatalog.isIncluded($0.id))
                 && seen.insert($0.modelVoice).inserted
         }
     }

@@ -487,7 +487,7 @@ final class ListenModel {
     }
 
     func voiceSections(filter: VoiceFilter) -> [VoiceSection] {
-        VoiceLibrary.sections(voices: voices, filter: filter, preferredLanguages: preferredLanguages,
+        VoiceLibrary.sections(voices: voices.filter(isOffered), filter: filter, preferredLanguages: preferredLanguages,
                               defaults: preferences.voiceByLanguage, favourites: preferences.favouriteVoiceIDs)
     }
 
@@ -594,8 +594,21 @@ final class ListenModel {
         case failed(String)
     }
 
-    /// Neural voices narrate for Premium, and in test builds.
-    var neuralVoicesAllowed: Bool { app?.entitlements.isPremium == true || isTestBuild }
+    /// Neural voices narrate for Premium, and in test builds while Premium is
+    /// on sale. Otherwise test builds match the App Store one: Ivy only.
+    var neuralVoicesAllowed: Bool { app?.entitlements.isPremium == true || (isTestBuild && PremiumStore.isOnSale) }
+
+    /// Whether the natural voices beyond Ivy, the voice server and the Voice
+    /// Lab are shown. Hidden while Premium isn't on sale (and isn't owned).
+    var showsExtraVoices: Bool { PremiumStore.isOnSale || neuralVoicesAllowed }
+
+    /// Apple voices and Ivy always; other natural voices and server voices
+    /// only while they're shown.
+    private func isOffered(_ voice: SpeechVoice) -> Bool {
+        if showsExtraVoices { return true }
+        if NeuralVoiceCatalog.voice(voice.id) != nil { return NeuralVoiceCatalog.isIncluded(voice.id) }
+        return !VoiceServer.isServerVoice(voice.id)
+    }
 
     /// The neural voice for a segment, if it should get one: the feed's or
     /// the language's chosen voice, downloaded, and allowed. Anything else
