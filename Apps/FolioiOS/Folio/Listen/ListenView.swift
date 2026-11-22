@@ -887,7 +887,8 @@ private struct RateMenu: View {
     var body: some View {
         let current = SpeechRate(listen.preferences.rate)
         Menu {
-            ForEach(SpeechRate.presets, id: \.self) { rate in
+            ForEach(SpeechRate.presets.filter { PremiumStore.isOnSale || entitlements.isPremium || $0 <= SpeechRate.freeMaximum },
+                    id: \.self) { rate in
                 Button {
                     if rate > SpeechRate.freeMaximum && !entitlements.isPremium { showPremium = true } else { listen.setRate(rate.multiplier) }
                 } label: {

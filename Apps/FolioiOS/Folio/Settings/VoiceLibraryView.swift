@@ -123,7 +123,9 @@ struct VoiceLibraryView: View {
     private var naturalSummary: String {
         let inUse = listen.preferences.voiceByLanguage.filter { listen.isUsable($0.value) }.keys.sorted()
         if !inUse.isEmpty { return "In use for " + inUse.map(VoiceText.language).joined(separator: ", ") }
-        if listen.installedModels.isEmpty && listen.serverVoices.isEmpty { return "Download a voice that runs on this iPhone, or connect your server" }
+        if listen.installedModels.isEmpty && listen.serverVoices.isEmpty {
+            return listen.showsExtraVoices ? "Download a voice that runs on this iPhone, or connect your server" : "Ivy downloads by herself on Wi-Fi"
+        }
         return "Downloaded. Choose one to use it"
     }
 
@@ -305,7 +307,7 @@ struct VoiceDetailView: View {
                 Toggle("Favourite", isOn: Binding(get: { listen.isFavourite(voice) }, set: { _ in listen.toggleFavourite(voice) }))
             }
 
-            if !isNatural {
+            if !isNatural && (PremiumStore.isOnSale || entitlements.isPremium) {
             Section {
                 if entitlements.isPremium {
                     let tuning = listen.tuning(for: voice)
@@ -332,6 +334,7 @@ struct VoiceDetailView: View {
             }
             }
 
+            if PremiumStore.isOnSale || entitlements.isPremium {
             Section {
                 if entitlements.isPremium {
                     ForEach(model.feeds) { feed in
@@ -353,6 +356,7 @@ struct VoiceDetailView: View {
                 Text("Use for feeds")
             } footer: {
                 Text("Articles from these feeds use \(voice.name) for \(VoiceText.language(language)) text.")
+            }
             }
         }
         .navigationTitle(voice.name)
@@ -497,6 +501,7 @@ struct PronunciationSettingsView: View {
                 Text("Built in")
             }
 
+            if PremiumStore.isOnSale || entitlements.isPremium {
             Section {
                 ForEach(listen.preferences.pronunciations) { entry in
                     Button {
@@ -525,6 +530,7 @@ struct PronunciationSettingsView: View {
                 Text(entitlements.isPremium
                      ? "Plain words or regular expressions with $1-style groups, per language or for all."
                      : "Your own pronunciations, including regular expressions, are part of Premium.")
+            }
             }
         }
         .navigationTitle("Pronunciation")

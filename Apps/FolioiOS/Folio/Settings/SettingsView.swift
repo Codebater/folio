@@ -77,13 +77,13 @@ struct SettingsView: View {
                     NavigationLink {
                         NaturalVoicesView()
                     } label: {
-                        SettingsRow(icon: "waveform", title: "Natural voices", subtitle: "Voices on this iPhone, your own server, Voice Lab")
+                        SettingsRow(icon: "waveform", title: "Natural voices", subtitle: listen.showsExtraVoices ? "Voices on this iPhone, your own server, Voice Lab" : "Ivy, on this iPhone")
                     }
                     NavigationLink {
                         PronunciationSettingsView()
                     } label: {
                         SettingsRow(icon: "character.bubble", title: "Pronunciation & cleanup",
-                                    subtitle: "Skip citations and boilerplate, fix words")
+                                    subtitle: PremiumStore.isOnSale ? "Skip citations and boilerplate, fix words" : "Skip citations and boilerplate")
                     }
                     NavigationLink {
                         ListeningStyleView()
@@ -101,6 +101,7 @@ struct SettingsView: View {
                     }
                 }
 
+                if PremiumStore.isOnSale || entitlements.isPremium {
                 Section("Premium") {
                     if entitlements.isPremium {
                         Label(entitlements.state.isFamily ? "Premium for your family is active." : "Premium is active. Thank you!",
@@ -114,6 +115,7 @@ struct SettingsView: View {
                     } else {
                         Button("Paperwire Premium") { showPremium = true }
                     }
+                }
                 }
 
                 Section("Storage") {

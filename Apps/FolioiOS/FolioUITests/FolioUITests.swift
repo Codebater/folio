@@ -119,7 +119,7 @@ final class FolioUITests: XCTestCase {
         screenshot(app, "03-listen-playing")
         app.terminate()
 
-        // Warm Paper: the reader's Appearance sheet, then Premium.
+        // Warm Paper: the reader's Appearance sheet.
         app = launch(extra: ["--theme", "warm-paper"])
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
         app.buttons["featured-story"].tap()
@@ -129,17 +129,18 @@ final class FolioUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Appearance"].waitForExistence(timeout: 5))
         sleep(1)
         screenshot(app, "05-appearance")
-        app.terminate()
+    }
 
-        app = launch(extra: ["--theme", "warm-paper"])
+    /// 1.0 is free: no Premium in Settings (PremiumStore.isOnSale is off).
+    /// When Premium goes on sale, bring back the 07-premium screenshot.
+    func testFreeBuildShowsNoPremium() {
+        let app = launch()
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
         app.buttons["Settings"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        let premium = app.buttons["Paperwire Premium"]
-        scrollTo(premium, in: app)
-        premium.tap()
-        sleep(3)  // StoreKit answers
-        screenshot(app, "07-premium")
+        for _ in 0..<6 { app.swipeUp() }
+        XCTAssertFalse(app.buttons["Paperwire Premium"].exists)
+        XCTAssertFalse(app.staticTexts["Premium"].exists)
     }
 
     func testOnboardingOffersTheDemoLibrary() {
@@ -193,7 +194,9 @@ final class FolioUITests: XCTestCase {
         XCTAssertTrue(app.buttons["make-default-voice"].waitForExistence(timeout: 5))
     }
 
-    func testNeuralVoicesAreOfferedWithTheVoiceLab() {
+    /// While Premium isn't on sale, Natural voices offers Ivy only: no other
+    /// models, voice server or Voice Lab.
+    func testNaturalVoicesOfferIvyOnly() {
         let app = launch()
         XCTAssertTrue(app.buttons["featured-story"].waitForExistence(timeout: 15))
         openVoiceLibrary(app)
@@ -201,21 +204,10 @@ final class FolioUITests: XCTestCase {
         app.buttons["natural-voices"].tap()
         XCTAssertTrue(app.navigationBars["Natural voices"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["download-supertonic"].exists)
-        XCTAssertTrue(app.buttons["download-kokoro"].exists)
-        let paradee = app.buttons["download-paradee"]
-        scrollTo(paradee, in: app)
-        XCTAssertTrue(paradee.exists)
-        let server = app.buttons["voice-server"]
-        scrollTo(server, in: app)
-        server.tap()
-        XCTAssertTrue(app.textFields["voice-server-address"].waitForExistence(timeout: 5))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.navigationBars["Natural voices"].waitForExistence(timeout: 5))
-        let lab = app.buttons["voice-lab"]
-        scrollTo(lab, in: app)
-        XCTAssertTrue(lab.waitForExistence(timeout: 5))
-        lab.tap()
-        XCTAssertTrue(app.navigationBars["Voice Lab"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["download-kokoro"].exists)
+        XCTAssertFalse(app.buttons["download-paradee"].exists)
+        XCTAssertFalse(app.buttons["voice-server"].exists)
+        XCTAssertFalse(app.buttons["voice-lab"].exists)
     }
 
     func testLanguagesHaveTheirOwnSettings() {

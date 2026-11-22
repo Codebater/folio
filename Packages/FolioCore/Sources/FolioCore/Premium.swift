@@ -25,6 +25,15 @@ public enum PremiumProduct: String, CaseIterable, Sendable, Codable {
     public var isSubscription: Bool { self == .yearly }
 }
 
+/// Whether this build sells Premium. Off for 1.0: in-app purchases need the
+/// Paid Apps Agreement in App Store Connect, which isn't active yet. While
+/// it's off the app shows no Premium screen and hides the extras (they stay
+/// locked, not free), so 1.0 is a plain free app. Turn it on for 1.1, with
+/// the products submitted alongside.
+public enum PremiumStore {
+    public static let isOnSale = false
+}
+
 /// What Premium unlocks. Everything not listed here is free, including
 /// FreshRSS sync, unlimited feeds, the standard reader, offline articles,
 /// Apple voices with read-along highlighting, bookmarks and self-hosting.
